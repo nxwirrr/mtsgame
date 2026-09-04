@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mi primer dictamen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet" />
+  <style>
+:root {
+  --bg0: #07021a;
+  --ink: #12081f;
+  --paper: #fff7ff;
+  --paper-2: #ffe3f2;
+  --pink: #ff2e8a;
+  --cyan: #18e7ff;
+  --yellow: #ffe14d;
+  --lime: #b6ff3b;
+  --muted: #6b4d7a;
+  --shadow: 0 18px 50px rgba(90, 0, 80, 0.28);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  font-family: "DM Sans", system-ui, sans-serif;
+  background:
+    radial-gradient(900px 500px at 0% 0%, #ff2e8a55, transparent 55%),
+    radial-gradient(800px 500px at 100% 0%, #18e7ff44, transparent 50%),
+    radial-gradient(700px 400px at 50% 100%, #7a3dff55, transparent 45%),
+    var(--bg0);
+  color: #fff;
+}
+#app { min-height: 100dvh; }
+h1, h2, h3, .serif { font-family: Fraunces, Georgia, serif; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+.shell { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding: 22px 0 40px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+.brand { letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px; color: #ffd6ee; }
+.brand b { font-family: Fraunces, serif; letter-spacing: 0; text-transform: none; font-size: 22px; color: #fff; display: block; }
+.pill { border: 1px solid #ff2e8a88; background: #2a0848; color: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; }
+.hero-card, .paper { background: var(--paper); color: var(--ink); border-radius: 24px; box-shadow: var(--shadow); }
+.hero-card { padding: 28px 26px 24px; }
+.paper { padding: 18px; border: 2px solid #fff; }
+.kicker { color: var(--pink); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
+h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.05; margin: 8px 0 10px; color: var(--ink); }
+.lead { color: #4a2a58; line-height: 1.45; margin: 0 0 18px; }
+.grid-2 { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 800px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+.grid-4 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+@media (min-width: 800px) { .grid-4 { grid-template-columns: repeat(4, 1fr); } }
+.choice { display: block; width: 100%; text-align: left; background: linear-gradient(135deg, #ff2e8a, #7a3dff); color: #fff; border: 0; border-radius: 18px; padding: 16px; }
+.choice.alt { background: linear-gradient(135deg, #18e7ff, #7a3dff); color: #12081f; }
+.choice small { display: block; opacity: 0.9; margin-top: 4px; }
+label { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+input, textarea, select { width: 100%; border: 2px solid #f5b4d8; background: #fff; color: var(--ink); border-radius: 12px; padding: 11px 12px; outline: none; }
+input:focus, textarea:focus, select:focus { border-color: var(--pink); }
+textarea { min-height: 110px; resize: vertical; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 999px; padding: 11px 16px; background: var(--ink); color: #fff; font-weight: 700; }
+.btn.gold { background: var(--pink); }
+.btn.cyan { background: var(--cyan); color: #071018; }
+.btn.ghost { background: transparent; color: var(--ink); border: 2px solid #f5b4d8; }
+.btn.green { background: #12c971; }
+.btn.red { background: #ff3b5c; }
+.btn.amber { background: var(--yellow); color: #171000; }
+.btn.small { padding: 7px 11px; font-size: 13px; }
+.scoreboard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 700px) { .scoreboard { grid-template-columns: repeat(4, 1fr); } }
+.team { background: #2a0848; border: 2px solid #ff2e8a66; border-radius: 16px; padding: 12px; }
+.team .name { font-size: 13px; color: #ffd6ee; }
+.team .pts { font-family: Fraunces, serif; font-size: 28px; color: var(--yellow); }
+.stamp-row { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 620px) { .stamp-row { grid-template-columns: 1fr 1fr 1fr; } }
+.stamp { border: 2px dashed #f5b4d8; background: #fff; color: var(--ink); border-radius: 16px; padding: 12px 10px; font-weight: 700; }
+.stamp.on-aprueba { border-style: solid; border-color: #12c971; background: #d9ffe8; color: #0a7a42; }
+.stamp.on-observaciones { border-style: solid; border-color: #e3b100; background: #fff4b8; color: #7a5a00; }
+.stamp.on-desaprueba { border-style: solid; border-color: #ff3b5c; background: #ffd4dc; color: #b01030; }
+.timer { font-family: Fraunces, serif; font-size: clamp(42px, 9vw, 72px); line-height: 1; color: var(--pink); }
+.qbox { font-size: 14px; color: #4a2a58; background: var(--paper-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+.fragment { font-size: 16px; line-height: 1.5; margin: 0; }
+.judge-grid { display: grid; gap: 12px; }
+@media (min-width: 860px) { .judge-grid { grid-template-columns: 1fr 1fr; } }
+.ai { background: #efe4ff; border-radius: 12px; padding: 10px 12px; font-size: 13px; color: #3b2460; margin: 8px 0; }
+.tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
+.tag.ok { background: #d9ffe8; color: #0a7a42; }
+.tag.no { background: #ffd4dc; color: #b01030; }
+.tag.wait { background: #fff4b8; color: #7a5a00; }
+.muted { color: var(--muted); font-size: 13px; }
+.footer-note { margin-top: 14px; color: #ffd6ee; font-size: 12px; line-height: 1.4; }
+.wait-screen { text-align: center; padding: 40px 16px; }
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; background: var(--lime); }
+
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+const TEAMS = [
+  { id: "t1", name: "Equipo 1" },
+  { id: "t2", name: "Equipo 2" },
+  { id: "t3", name: "Equipo 3" },
+  { id: "t4", name: "Equipo 4" }
+];
+
+const CASES0 = [
+  {
+    id: "c1",
+    titulo: "Caso 1 · Recorte",
+    pregunta: "¿Cómo influyen las representaciones sociales del rol docente en el malestar de maestras rurales de primaria?",
+    fragmento: "Diversos autores han definido las representaciones sociales. Moscovici (1961) señala que son sistemas de valores, ideas y prácticas. Jodelet (1986) agrega que permiten interpretar el mundo y orientar la conducta. Abric (1994) distingue núcleo central y elementos periféricos. En educación, estas nociones han sido ampliamente utilizadas para estudiar creencias, identidades y prácticas escolares en distintos niveles y contextos.",
+    falloOficial: "observaciones",
+    base: "Los autores son pertinentes, pero el párrafo solo lista definiciones. No hay articulación ni recorte al problema: no dice cómo se usará la teoría para leer el malestar docente en escuelas rurales de primaria.",
+    claves: ["lista", "definiciones", "no recorta", "no articula", "yuxtapon", "rural", "malestar", "no dice cómo"]
+  },
+  {
+    id: "c2",
+    titulo: "Caso 2 · Cierra",
+    pregunta: "¿Cómo influyen las representaciones sociales del rol docente en el malestar de maestras rurales de primaria?",
+    fragmento: "Las representaciones sociales (Moscovici, 1961; Jodelet, 1986) se entienden aquí como sistemas de sentido que organizan la percepción del oficio. No se toma el concepto de modo genérico: se lo recorta al núcleo “buena maestra / escuela posible” en contexto rural (Abric, 1994). Ese recorte permite leer el malestar no como rasgo individual, sino como tensión entre la representación del rol y las condiciones reales de la escuela del interior.",
+    falloOficial: "aprueba",
+    base: "Hay definición situada, diálogo breve entre autores y recorte explícito al problema. El párrafo cierra diciendo para qué se usa la teoría en este proyecto.",
+    claves: ["recorte", "rural", "malestar", "para qué", "rol", "articula", "situad"]
+  }
+];
+
+const SELLOS = [
+  { id: "aprueba", label: "Aprueba" },
+  { id: "observaciones", label: "Aprueba con observaciones" },
+  { id: "desaprueba", label: "Desaprueba" }
+];
+
+const storeKey = (code) => "dictamen-sala-" + code;
+
+function uid() { return Math.random().toString(36).slice(2, 8); }
+function code4() {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+function norm(s) {
+  return (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+
+function assignTeam(state) {
+  const counts = {};
+  TEAMS.forEach((t) => { counts[t.id] = state.players.filter((p) => p.teamId === t.id && !p.staff).length; });
+  return TEAMS.slice().sort((a, b) => counts[a.id] - counts[b.id] || a.id.localeCompare(b.id))[0].id;
+}
+
+function emptyAnswers() {
+  const o = {};
+  TEAMS.forEach((t) => { o[t.id] = { sello: null, porque: "", sent: false, judged: null, ai: null }; });
+  return o;
+}
+
+function defaultState(code) {
+  return {
+    code,
+    phase: "lobby",
+    caseIndex: 0,
+    seconds: 90,
+    remaining: 90,
+    endsAt: null,
+    scores: { t1: 0, t2: 0, t3: 0, t4: 0 },
+    answers: emptyAnswers(),
+    players: [],
+    cases: JSON.parse(JSON.stringify(CASES0)),
+    reveal: false,
+    editorId: null
+  };
+}
+
+function currentCase(state) { return state.cases[state.caseIndex] || state.cases[0]; }
+
+function suggestAI(answer, caso) {
+  const selloOk = answer.sello && answer.sello === caso.falloOficial;
+  const text = norm(answer.porque);
+  const hits = (caso.claves || []).filter((k) => text.includes(norm(k)));
+  let cerca = "lejos";
+  if (!answer.sello && !text) cerca = "vacio";
+  else if (selloOk && (hits.length >= 2 || (hits.length >= 1 && text.length > 50))) cerca = "cerca";
+  else if (selloOk && text.length > 30) cerca = "medias";
+  else if (!selloOk && hits.length >= 2) cerca = "medias";
+  const selloTxt = selloOk ? "El sello coincide." : answer.sello ? "El sello no coincide." : "No eligieron sello.";
+  const keyTxt = hits.length ? "Pistas: " + hits.slice(0, 4).join(", ") + "." : "Casi no aparecen las pistas de la base.";
+  let rec = "No sumaría el porqué.";
+  if (cerca === "cerca") rec = "Sugerencia: SUMAR el porqué.";
+  if (cerca === "medias") rec = "Sugerencia: A MEDIAS.";
+  if (cerca === "vacio") rec = "No hay dictamen.";
+  return { selloOk, cerca, hits, texto: selloTxt + " " + keyTxt + " " + rec };
+}
+
+const Sync = {
+  role: null, code: null, peer: null, conns: [], studentConn: null,
+  saveLocal(state) {
+    localStorage.setItem(storeKey(state.code), JSON.stringify(state));
+  },
+  loadLocal(code) {
+    const raw = localStorage.getItem(storeKey(code));
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  },
+  broadcast(state) {
+    this.saveLocal(state);
+    this.conns.forEach((c) => { try { c.send({ type: "state", state }); } catch (e) {} });
+  },
+  sendToHost(msg) {
+    if (this.studentConn && this.studentConn.open) {
+      this.studentConn.send(msg);
+      return true;
+    }
+    const state = this.loadLocal(this.code);
+    if (!state) return false;
+    if (msg.type === "join" && !state.players.find((p) => p.id === msg.player.id)) {
+      state.players.push(msg.player);
+      this.saveLocal(state);
+    }
+    if (msg.type === "draft" || msg.type === "submit") {
+      const cur = state.answers[msg.teamId] || {};
+      state.answers[msg.teamId] = Object.assign({}, cur, msg.payload, { sent: msg.type === "submit" ? true : cur.sent });
+      this.saveLocal(state);
+    }
+    return true;
+  },
+  startHost(code, getState, applyRemote) {
+    this.role = "host"; this.code = code; this.conns = [];
+    if (typeof Peer === "undefined") return;
+    try {
+      this.peer = new Peer("dic" + code.toLowerCase());
+      this.peer.on("connection", (conn) => {
+        this.conns.push(conn);
+        conn.on("open", () => conn.send({ type: "state", state: getState() }));
+        conn.on("data", applyRemote);
+        conn.on("close", () => { this.conns = this.conns.filter((c) => c !== conn); });
+      });
+    } catch (e) {}
+  },
+  startStudent(code, onState, sendBuffer) {
+    this.role = "student"; this.code = code;
+    if (typeof Peer === "undefined") return;
+    try {
+      this.peer = new Peer();
+      this.peer.on("open", () => {
+        this.studentConn = this.peer.connect("dic" + code.toLowerCase());
+        this.studentConn.on("open", () => { (sendBuffer || []).forEach((m) => this.studentConn.send(m)); });
+        this.studentConn.on("data", (msg) => { if (msg.type === "state") onState(msg.state); });
+      });
+    } catch (e) {}
+  }
+};
+
+const App = {
+  role: null, code: null, player: null, state: null, timerId: null, pollId: null,
+  lastPhase: null, playBound: false,
+
+  setState(next, broadcast) {
+    this.state = next;
+    if (broadcast !== false && this.role === "host") Sync.broadcast(next);
+    this.render();
+  },
+
+  startPoll() {
+    clearInterval(this.pollId);
+    this.pollId = setInterval(() => {
+      if (!this.code) return;
+      const s = Sync.loadLocal(this.code);
+      if (!s) return;
+      if (this.role === "student") {
+        const prevPhase = this.state && this.state.phase;
+        const prevReveal = this.state && this.state.reveal;
+        this.state = s;
+        if (!this.player) return;
+        if (s.phase === "play") {
+          if (prevPhase !== "play") this.render();
+          else this.tickOnly();
+          return;
+        }
+        if (prevPhase !== s.phase || prevReveal !== s.reveal) this.render();
+      }
+      if (this.role === "host" && this.state && this.state.phase === "play") {
+        this.state.players = s.players;
+        this.state.answers = s.answers;
+        this.patchHostLive();
+      }
+    }, 400);
+  },
+
+  tickOnly() {
+    const el = document.getElementById("live-timer");
+    if (!el || !this.state) return;
+    const live = this.state.phase === "play"
+      ? Math.max(0, this.state.endsAt ? Math.ceil((this.state.endsAt - Date.now()) / 1000) : this.state.remaining)
+      : this.state.remaining;
+    el.textContent = String(live);
+  },
+
+  patchHostLive() {
+    if (!this.state || this.state.phase !== "play") return;
+    TEAMS.forEach((t) => {
+      const tag = document.getElementById("st-" + t.id);
+      if (!tag) return;
+      const a = this.state.answers[t.id];
+      tag.textContent = a.sent ? "enviado" : (a.sello || a.porque ? "escribiendo" : "sin tocar");
+      tag.className = "tag " + (a.sello || a.porque ? "wait" : "no");
+    });
+    const people = document.getElementById("people-count");
+    if (people) people.textContent = this.state.players.length + " en la sala";
+  },
+
+  go(hash) { location.hash = hash; this.route(); },
+
+  route() {
+    const parts = (location.hash.replace("#", "") || "/").split("/").filter(Boolean);
+    if (parts[0] === "docente" && parts[1]) {
+      this.role = "host";
+      this.code = parts[1].toUpperCase();
+      this.state = Sync.loadLocal(this.code) || defaultState(this.code);
+      const staffKey = "dictamen-editor-" + this.code;
+      let staffId = sessionStorage.getItem(staffKey);
+      if (!this.state.editorId) {
+        staffId = staffId || uid();
+        sessionStorage.setItem(staffKey, staffId);
+        this.state.editorId = staffId;
+        Sync.saveLocal(this.state);
+      }
+      this.staffId = staffId;
+      this.canEdit = this.state.editorId && staffId && this.state.editorId === staffId;
+      Sync.startHost(this.code, () => this.state, (msg) => this.hostReceive(msg));
+      this.startPoll();
+      this.ensureTimer();
+      this.render();
+      return;
+    }
+    if (parts[0] === "jugar" && parts[1]) {
+      this.role = "student";
+      this.code = parts[1].toUpperCase();
+      const saved = sessionStorage.getItem("dictamen-player");
+      this.player = saved ? JSON.parse(saved) : null;
+      this.state = Sync.loadLocal(this.code) || null;
+      Sync.startStudent(this.code, (st) => {
+        const prevPhase = this.state && this.state.phase;
+        this.state = st;
+        if (!this.player) return;
+        if (st.phase === "play") {
+          if (prevPhase !== "play") this.render();
+          else this.tickOnly();
+          return;
+        }
+        if (prevPhase !== st.phase) this.render();
+      }, this.player ? [{ type: "join", player: this.player }] : []);
+      this.startPoll();
+      this.render();
+      return;
+    }
+    this.role = null;
+    this.renderHome();
+  },
+
+  hostReceive(msg) {
+    if (!this.state) return;
+    if (msg.type === "join" && msg.player && !this.state.players.find((p) => p.id === msg.player.id)) {
+      if (!msg.player.staff && !msg.player.teamId) msg.player.teamId = assignTeam(this.state);
+      this.state.players.push(msg.player);
+      Sync.broadcast(this.state);
+      const typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+      if (this.state.phase !== "play" && !typing) this.render();
+    }
+    if ((msg.type === "draft" || msg.type === "submit") && msg.teamId) {
+      const cur = this.state.answers[msg.teamId] || {};
+      this.state.answers[msg.teamId] = Object.assign({}, cur, {
+        sello: msg.payload.sello,
+        porque: msg.payload.porque,
+        sent: msg.type === "submit" ? true : cur.sent
+      });
+      Sync.broadcast(this.state);
+      if (this.state.phase === "play") this.patchHostLive();
+      else this.render();
+    }
+  },
+
+  ensureTimer() {
+    clearInterval(this.timerId);
+    this.timerId = setInterval(() => {
+      if (this.role !== "host" || !this.state || this.state.phase !== "play" || !this.state.endsAt) return;
+      const left = Math.max(0, Math.ceil((this.state.endsAt - Date.now()) / 1000));
+      this.state.remaining = left;
+      const el = document.getElementById("live-timer");
+      if (el) el.textContent = String(left);
+      if (left === 0) this.freezeRound();
+    }, 250);
+  },
+
+  freezeRound() {
+    const st = this.state;
+    TEAMS.forEach((t) => {
+      const a = st.answers[t.id];
+      a.sent = true;
+    });
+    st.phase = "judge";
+    st.remaining = 0;
+    st.endsAt = null;
+    this.setState(Object.assign({}, st));
+  },
+
+  render() {
+    if (!this.role) return this.renderHome();
+    if (this.role === "host") return this.renderHost();
+    return this.renderStudent();
+  },
+
+  renderHome() {
+    document.getElementById("app").innerHTML =
+      '<div class="shell"><div class="topbar"><div class="brand"><b>Mi primer dictamen</b>marco teórico</div></div>' +
+      '<div class="hero-card"><div class="kicker">Concurso de aula</div>' +
+      "<h1>Mi primer dictamen</h1>" +
+      '<p class="lead">Cargás los párrafos, ellas sellan y escriben el porqué. Cuando se congela el tiempo, el profe y las ayudantes juzgan en vivo.</p>' +
+      '<div class="grid-2">' +
+      '<button class="choice" id="btn-create"><strong>Crear sala</strong><small>Primera persona: carga los párrafos</small></button>' +
+      '<button class="choice alt" id="btn-staff"><strong>Soy ayudante</strong><small>Entro con el código a juzgar, sin editar</small></button>' +
+      "</div>" +
+      '<button class="choice" id="btn-join-panel" style="margin-top:10px;background:linear-gradient(135deg,#ffe14d,#ff2e8a);color:#12081f"><strong>Soy estudiante</strong><small>El equipo se asigna solo al entrar</small></button>' +
+      "</div>" +
+      '<div id="join-box" class="hero-card" style="margin-top:14px;display:none">' +
+      "<label>Código de sala</label><div class=\"row\">" +
+      '<input id="join-code" maxlength="6" placeholder="Ej. K7QM" style="flex:1;text-transform:uppercase" />' +
+      '<button class="btn gold" id="go-join">Entrar</button></div>' +
+      '<p class="muted" id="join-hint"></p></div>' +
+      '<p class="footer-note">Para el aula, subí este archivo a un link (Netlify o GitHub Pages). Para probar: docente en una pestaña, estudiante en otra.</p></div>';
+    document.getElementById("btn-create").onclick = () => {
+      const code = code4();
+      const st = defaultState(code);
+      const editorId = uid();
+      st.editorId = editorId;
+      sessionStorage.setItem("dictamen-editor-" + code, editorId);
+      Sync.saveLocal(st);
+      this.go("/docente/" + code);
+    };
+    document.getElementById("btn-staff").onclick = () => {
+      document.getElementById("join-box").style.display = "block";
+      document.getElementById("join-hint").textContent = "Ayudante: mismo código, panel de juicio sin editor.";
+      document.getElementById("join-box").dataset.mode = "staff";
+      document.getElementById("join-code").focus();
+    };
+    document.getElementById("btn-join-panel").onclick = () => {
+      document.getElementById("join-box").style.display = "block";
+      document.getElementById("join-hint").textContent = "Estudiante: el equipo se asigna solo.";
+      document.getElementById("join-box").dataset.mode = "student";
+      document.getElementById("join-code").focus();
+    };
+    document.getElementById("go-join").onclick = () => {
+      const code = document.getElementById("join-code").value.trim().toUpperCase();
+      if (code.length < 3) return;
+      const mode = document.getElementById("join-box").dataset.mode || "student";
+      this.go((mode === "staff" ? "/docente/" : "/jugar/") + code);
+    };
+  },
+
+  renderHost() {
+    const st = this.state;
+    const caso = currentCase(st);
+    const live = Math.max(0, st.remaining);
+    const joined = TEAMS.map((t) => ({
+      ...t,
+      people: st.players.filter((p) => p.teamId === t.id),
+      ans: st.answers[t.id]
+    }));
+    const nPeople = st.players.length;
+    let body = "";
+
+    if (st.phase === "lobby" || st.phase === "score") {
+      body =
+        '<div class="grid-2"><div class="paper">' +
+        '<div class="kicker">' + escapeHtml(caso.titulo || ("Párrafo " + (st.caseIndex + 1))) + "</div>" +
+        '<div class="qbox"><b>Pregunta de investigación</b><br>' + escapeHtml(caso.pregunta) + "</div>" +
+        '<p class="fragment">' + escapeHtml(caso.fragmento) + "</p>" +
+        '<p class="muted" style="margin-top:10px">Fallo oficial: <b>' + escapeHtml(SELLOS.find((s) => s.id === caso.falloOficial).label) + "</b></p>" +
+        '<p class="muted" id="people-count">' + nPeople + " en la sala</p>" +
+        '<p class="muted">Cuando estén el profe y las estudiantes, largá la ronda. No hace falta que estén las 14 para probar.</p>' +
+        '<div class="row" style="margin-top:12px">' +
+        '<button class="btn gold" id="start">Iniciar ronda</button>' +
+        '<button class="btn ghost" id="prevc">Anterior</button>' +
+        '<button class="btn ghost" id="nextc">Siguiente párrafo</button></div></div>' +
+        (this.canEdit ? (
+        '<div class="paper"><div class="kicker">Cargar / editar párrafo</div>' +
+        '<label>Título</label><input id="f-titulo" value="' + escapeHtml(caso.titulo || "") + '" />' +
+        '<label style="margin-top:8px">Pregunta de investigación</label><textarea id="f-preg" style="min-height:70px">' + escapeHtml(caso.pregunta || "") + "</textarea>" +
+        '<label style="margin-top:8px">Párrafo / fragmento</label><textarea id="f-frag">' + escapeHtml(caso.fragmento || "") + "</textarea>" +
+        '<label style="margin-top:8px">Fallo oficial</label><select id="f-fallo">' +
+        SELLOS.map((s) => '<option value="' + s.id + '"' + (caso.falloOficial === s.id ? " selected" : "") + ">" + s.label + "</option>").join("") +
+        "</select>" +
+        '<label style="margin-top:8px">Respuesta base (por qué)</label><textarea id="f-base" style="min-height:80px">' + escapeHtml(caso.base || "") + "</textarea>" +
+        '<label style="margin-top:8px">Segundos</label><input id="secs" type="number" min="20" max="300" value="' + st.seconds + '" />' +
+        '<div class="row" style="margin-top:12px">' +
+        '<button class="btn cyan" id="save-case">Guardar este párrafo</button>' +
+        '<button class="btn ghost" id="add-case">Agregar otro vacío</button></div>' +
+        '<p class="muted" style="margin-top:10px">Párrafo ' + (st.caseIndex + 1) + " de " + st.cases.length + "</p></div>"
+        ) : '<div class="paper"><div class="kicker">Ayudante</div><p>Solo quien creó la sala puede editar los párrafos. Vos juzgás cuando se congelen las respuestas.</p></div>') +
+        "</div>";
+    }
+
+    if (st.phase === "play") {
+      body =
+        '<div class="paper" style="text-align:center"><div class="kicker">Tiempo para dictaminar</div>' +
+        '<div class="timer" id="live-timer">' + live + "</div>" +
+        '<p class="muted" id="people-count">' + nPeople + " en la sala · al llegar a 0 se envía lo escrito</p></div>" +
+        '<div class="paper" style="margin-top:12px"><div class="qbox">' + escapeHtml(caso.pregunta) + "</div>" +
+        '<p class="fragment">' + escapeHtml(caso.fragmento) + "</p></div>" +
+        '<div class="grid-4" style="margin-top:12px">' +
+        joined.map((t) =>
+          '<div class="paper"><b>' + escapeHtml(t.name) + "</b>" +
+          '<div class="muted">' + t.people.map((p) => escapeHtml(p.name)).join(", ") + "</div>" +
+          '<div style="margin-top:8px"><span class="tag ' + (t.ans.sello || t.ans.porque ? "wait" : "no") + '" id="st-' + t.id + '">' +
+          (t.ans.sent ? "enviado" : (t.ans.sello || t.ans.porque ? "escribiendo" : "sin tocar")) +
+          "</span></div></div>"
+        ).join("") +
+        '</div><div class="row" style="margin-top:12px"><button class="btn red" id="freeze">Congelar ahora</button></div>';
+    }
+
+    if (st.phase === "judge") {
+      body =
+        '<div class="paper" style="margin-bottom:12px"><div class="kicker">El profe y las ayudantes deliberan</div>' +
+        '<p><b>Base:</b> ' + escapeHtml(caso.base) + "</p>" +
+        '<p class="muted">Fallo oficial: ' + escapeHtml(SELLOS.find((s) => s.id === caso.falloOficial).label) + "</p></div>" +
+        '<div class="judge-grid">' +
+        joined.map((t) => {
+          const a = t.ans;
+          const selloOk = a.sello && a.sello === caso.falloOficial;
+          const selloLabel = SELLOS.find((s) => s.id === a.sello)?.label || "Sin sello";
+          return '<div class="paper"><div class="row" style="justify-content:space-between;align-items:center">' +
+            "<b>" + escapeHtml(t.name) + '</b><span class="tag ' + (selloOk ? "ok" : "no") + '">' + escapeHtml(selloLabel) + "</span></div>" +
+            '<p style="white-space:pre-wrap;margin:10px 0">' + (escapeHtml(a.porque) || "<span class='muted'>Sin texto</span>") + "</p>" +
+            '<div class="row">' +
+            '<button class="btn green small js-j" data-team="' + t.id + '" data-v="suma">Suma +3</button>' +
+            '<button class="btn amber small js-j" data-team="' + t.id + '" data-v="medias">A medias +1</button>' +
+            '<button class="btn red small js-j" data-team="' + t.id + '" data-v="no">No suma</button></div>' +
+            '<p class="muted" style="margin:8px 0 0">' + (a.judged ? "Cargado: " + a.judged : "Todavía no juzgado") + "</p></div>";
+        }).join("") +
+        '</div><div class="row" style="margin-top:12px"><button class="btn gold" id="reveal">Develar y sumar</button></div>';
+    }
+
+    document.getElementById("app").innerHTML =
+      '<div class="shell"><div class="topbar"><div class="brand"><b>Mi primer dictamen</b>sala ' + st.code + "</div>" +
+      '<div class="pill"><span class="sync-dot"></span>' + st.phase + " · " + nPeople + " conectadas</div></div>" +
+      '<div class="scoreboard" style="margin-bottom:14px">' +
+      joined.map((t) => '<div class="team"><div class="name">' + escapeHtml(t.name) + " · " +
+        (t.people.map((p) => escapeHtml(p.name)).join(", ") || "vacío") + '</div><div class="pts">' + st.scores[t.id] + "</div></div>").join("") +
+      "</div>" + body + "</div>";
+
+    const bindSave = () => {
+      const c = this.state.cases[this.state.caseIndex];
+      c.titulo = document.getElementById("f-titulo").value.trim() || ("Párrafo " + (this.state.caseIndex + 1));
+      c.pregunta = document.getElementById("f-preg").value;
+      c.fragmento = document.getElementById("f-frag").value;
+      c.falloOficial = document.getElementById("f-fallo").value;
+      c.base = document.getElementById("f-base").value;
+      this.state.seconds = Number(document.getElementById("secs").value || 90);
+      this.setState(this.state);
+    };
+    const saveBtn = document.getElementById("save-case");
+    if (saveBtn) saveBtn.onclick = bindSave;
+    const addBtn = document.getElementById("add-case");
+    if (addBtn) addBtn.onclick = () => {
+      if (document.getElementById("f-titulo")) bindSave();
+      this.state.cases.push({
+        id: uid(), titulo: "Párrafo " + (this.state.cases.length + 1),
+        pregunta: "", fragmento: "", falloOficial: "observaciones", base: ""
+      });
+      this.state.caseIndex = this.state.cases.length - 1;
+      this.setState(this.state);
+    };
+    const start = document.getElementById("start");
+    if (start) start.onclick = () => {
+      if (document.getElementById("f-titulo")) bindSave();
+      this.state.answers = emptyAnswers();
+      this.state.phase = "play";
+      this.state.remaining = this.state.seconds;
+      this.state.endsAt = Date.now() + this.state.seconds * 1000;
+      this.state.reveal = false;
+      this.setState(this.state);
+      this.ensureTimer();
+    };
+    const nextc = document.getElementById("nextc");
+    if (nextc) nextc.onclick = () => {
+      if (document.getElementById("f-titulo")) bindSave();
+      this.state.caseIndex = (this.state.caseIndex + 1) % this.state.cases.length;
+      this.state.phase = "lobby";
+      this.state.answers = emptyAnswers();
+      this.setState(this.state);
+    };
+    const prevc = document.getElementById("prevc");
+    if (prevc) prevc.onclick = () => {
+      if (document.getElementById("f-titulo")) bindSave();
+      this.state.caseIndex = (this.state.caseIndex - 1 + this.state.cases.length) % this.state.cases.length;
+      this.state.phase = "lobby";
+      this.setState(this.state);
+    };
+    const freeze = document.getElementById("freeze");
+    if (freeze) freeze.onclick = () => this.freezeRound();
+    document.querySelectorAll(".js-j").forEach((b) => {
+      b.onclick = () => {
+        this.state.answers[b.dataset.team].judged = b.dataset.v;
+        this.setState(this.state);
+      };
+    });
+    const reveal = document.getElementById("reveal");
+    if (reveal) reveal.onclick = () => {
+      const casoNow = currentCase(this.state);
+      TEAMS.forEach((t) => {
+        const a = this.state.answers[t.id];
+        if (a.sello === casoNow.falloOficial) this.state.scores[t.id] += 2;
+        if (a.judged === "suma") this.state.scores[t.id] += 3;
+        if (a.judged === "medias") this.state.scores[t.id] += 1;
+      });
+      this.state.phase = "score";
+      this.state.reveal = true;
+      this.setState(this.state);
+    };
+  },
+
+  renderStudent() {
+    const app = document.getElementById("app");
+    if (!this.state) {
+      app.innerHTML = '<div class="shell"><div class="hero-card"><h2 class="serif">Sala ' + escapeHtml(this.code || "") +
+        "</h2><p class=\"lead\">No encuentro esta sala en este dispositivo. Creala primero en modo docente (misma compu o el mismo link publicado).</p>" +
+        '<button class="btn ghost" id="back">Volver</button></div></div>';
+      document.getElementById("back").onclick = () => this.go("/");
+      return;
+    }
+
+    if (!this.player) {
+      app.innerHTML = '<div class="shell"><div class="hero-card"><div class="kicker">Mi primer dictamen · ' + this.state.code + "</div>" +
+        '<h2 class="serif" style="color:var(--ink)">Tu lugar</h2>' +
+        '<label>Nombre o apodo</label><input id="pname" maxlength="24" placeholder="Ej. Evelin" autocomplete="off" autocorrect="off" spellcheck="false" />' +
+        '<p class="muted">El equipo se asigna solo, en orden, a medida que van entrando.</p>' +
+        '<div class="row" style="margin-top:14px"><button class="btn gold" id="enter">Entrar</button></div></div></div>';
+      document.getElementById("enter").onclick = () => {
+        const name = (document.getElementById("pname").value || "").trim() || "Alumna";
+        const st = Sync.loadLocal(this.code) || this.state;
+        const teamId = assignTeam(st);
+        this.player = { id: uid(), name: name, teamId: teamId };
+        sessionStorage.setItem("dictamen-player", JSON.stringify(this.player));
+        Sync.sendToHost({ type: "join", player: this.player });
+        if (st && !st.players.find((p) => p.id === this.player.id)) {
+          st.players.push(this.player);
+          Sync.saveLocal(st);
+          this.state = st;
+        }
+        this.render();
+      };
+      return;
+    }
+
+    const caso = currentCase(this.state);
+    const mine = this.state.answers[this.player.teamId] || emptyAnswers()[this.player.teamId];
+    const live = this.state.phase === "play"
+      ? Math.max(0, this.state.endsAt ? Math.ceil((this.state.endsAt - Date.now()) / 1000) : this.state.remaining)
+      : this.state.remaining;
+    const teamName = TEAMS.find((t) => t.id === this.player.teamId).name;
+
+    if (this.state.phase === "lobby" || this.state.phase === "score") {
+      const revealed = this.state.reveal;
+      app.innerHTML = '<div class="shell"><div class="topbar"><div class="brand"><b>' + escapeHtml(teamName) + "</b>" +
+        escapeHtml(this.player.name) + '</div><div class="pill">' + this.state.scores[this.player.teamId] + " pts</div></div>" +
+        '<div class="wait-screen paper"><div class="kicker">' + (revealed ? "Ronda cerrada" : "Esperando al profe y al resto") + "</div>" +
+        '<h2 class="serif" style="color:var(--ink)">' + (revealed ? "Ya está el fallo" : "Cuando estén todes, largan la ronda") + "</h2>" +
+        (revealed
+          ? "<p>Fallo oficial: <b>" + escapeHtml(SELLOS.find((s) => s.id === caso.falloOficial).label) + "</b></p><p class=\"muted\">" + escapeHtml(caso.base) + "</p>"
+          : '<p class="muted">Ya estás adentro. El profe carga los párrafos y da inicio.</p>') +
+        "</div></div>";
+      return;
+    }
+
+    if (this.state.phase === "judge") {
+      app.innerHTML = '<div class="shell"><div class="wait-screen paper"><div class="kicker">Dictamen enviado</div>' +
+        '<h2 class="serif" style="color:var(--ink)">El profe y las ayudantes están leyendo</h2>' +
+        '<p class="muted">Todavía no se devela si acertaron.</p></div></div>';
+      return;
+    }
+
+    app.innerHTML = '<div class="shell"><div class="topbar"><div class="brand"><b>' + escapeHtml(teamName) + "</b></div>" +
+      '<div class="pill" style="font-size:28px;padding:4px 14px" id="live-timer">' + live + "</div></div>" +
+      '<div class="paper"><div class="qbox"><b>Pregunta de investigación</b><br>' + escapeHtml(caso.pregunta) + "</div>" +
+      '<p class="fragment">' + escapeHtml(caso.fragmento) + "</p></div>" +
+      '<div class="paper" style="margin-top:12px"><label>Fallo</label><div class="stamp-row">' +
+      SELLOS.map((s) => '<button type="button" class="stamp ' + (mine.sello === s.id ? "on-" + s.id : "") + ' js-sello" data-id="' + s.id + '">' + s.label + "</button>").join("") +
+      '</div><label style="margin-top:14px">Por qué</label>' +
+      '<textarea id="porque" placeholder="Escriban el dictamen. Si se congela el tiempo, se manda así como esté."></textarea>' +
+      '<div class="row" style="margin-top:10px"><button class="btn gold" id="send">Enviar dictamen</button>' +
+      '<span class="muted" id="sent-flag">' + (mine.sent ? "Ya hay un envío. Pueden seguir editando hasta que cierre el tiempo." : "Puede enviar una o todas.") + "</span></div></div></div>";
+
+    const push = (submit) => {
+      const area = document.getElementById("porque");
+      mine.porque = area ? area.value : mine.porque;
+      if (submit) mine.sent = true;
+      Sync.sendToHost({ type: submit ? "submit" : "draft", teamId: this.player.teamId, payload: { sello: mine.sello, porque: mine.porque } });
+    };
+    document.querySelectorAll(".js-sello").forEach((b) => {
+      b.onclick = () => {
+        mine.sello = b.dataset.id;
+        document.querySelectorAll(".js-sello").forEach((x) => { x.className = "stamp js-sello"; });
+        b.className = "stamp js-sello on-" + b.dataset.id;
+        push(false);
+      };
+    });
+    const area = document.getElementById("porque");
+    let t = null;
+    area.addEventListener("input", () => {
+      clearTimeout(t);
+      t = setTimeout(() => push(false), 150);
+    });
+    document.getElementById("send").onclick = () => {
+      push(true);
+      document.getElementById("sent-flag").textContent = "Enviado. Pueden seguir editando hasta que cierre el tiempo.";
+    };
+  }
+};
+
+window.addEventListener("hashchange", () => App.route());
+App.route();
+
+  </script>
+</body>
+</html>
