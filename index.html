@@ -216,6 +216,7 @@ function defaultState(code) {
   };
   return {
     code,
+    rev: 0,
     phase: "lobby",
     activityIndex: 0,
     caseIndex: 0,
@@ -304,11 +305,25 @@ function applyHostAction(state, action) {
     state.activityIndex = state.activities.length - 1;
     state.caseIndex = 0;
     state.phase = "lobby";
+  } else if (action.kind === "deleteActivity") {
+    // Siempre tiene que quedar al menos una actividad en la sala.
+    if (state.activities.length > 1 && state.activities[action.index]) {
+      state.activities.splice(action.index, 1);
+      if (state.activityIndex >= state.activities.length) state.activityIndex = state.activities.length - 1;
+      else if (action.index < state.activityIndex) state.activityIndex -= 1;
+      state.caseIndex = 0;
+      state.phase = "lobby";
+      state.answers = emptyAnswers();
+      state.reveal = false;
+    }
   }
 }
 
 const Sync = {
   role: null, code: null, peer: null, conns: [], studentConn: null,
+  isLive() {
+    return !!(this.studentConn && this.studentConn.open);
+  },
   saveLocal(state) {
     localStorage.setItem(storeKey(state.code), JSON.stringify(state));
   },
@@ -318,6 +333,7 @@ const Sync = {
     try { return JSON.parse(raw); } catch { return null; }
   },
   broadcast(state) {
+    state.rev = (state.rev || 0) + 1;
     this.saveLocal(state);
     this.conns.forEach((c) => { try { c.send({ type: "state", state }); } catch (e) {} });
   },
@@ -399,6 +415,11 @@ const App = {
       const s = Sync.loadLocal(this.code);
       if (!s) return;
       if (this.role === "student") {
+        // El link en vivo manda: este sondeo a localStorage es solo el respaldo
+        // para cuando docente y estudiante comparten el mismo navegador. En un
+        // celular aparte la copia local es vieja y pisaría lo que llegó por red.
+        if (Sync.isLive()) return;
+        if (this.state && (s.rev || 0) < (this.state.rev || 0)) return;
         const prevPhase = this.state && this.state.phase;
         const prevReveal = this.state && this.state.reveal;
         const hadState = !!this.state;
@@ -649,10 +670,17 @@ const App = {
         '<div class="kicker">Actividades de la sala</div>' +
         st.activities.map((a, i) => {
           const def = activityTypeOf(a);
-          return '<label style="display:flex;align-items:center;gap:8px;border:2px solid #f5b4d8;border-radius:12px;padding:8px 10px;margin-top:8px;font-weight:400">' +
+          const rowLabelStyle = "display:flex;align-items:center;gap:8px;flex:1;margin:0;font-weight:400;font-size:14px;" +
+            "text-transform:none;letter-spacing:normal;color:var(--ink)";
+          return '<div style="display:flex;align-items:center;gap:8px;border:2px solid #f5b4d8;border-radius:12px;padding:8px 10px;margin-top:8px">' +
+            '<label style="' + rowLabelStyle + '">' +
             '<input type="checkbox" class="js-toggle-act" data-index="' + i + '"' + (a.activa ? " checked" : "") + ' style="width:auto" />' +
-            '<span style="flex:1">' + escapeHtml(a.titulo) + ' <span class="muted">(' + escapeHtml(def.label) + ", " + a.cases.length + ")</span></span>" +
-            "</label>";
+            "<span>" + escapeHtml(a.titulo) + ' <span class="muted">(' + escapeHtml(def.label) + ", " + a.cases.length + ")</span></span>" +
+            "</label>" +
+            (st.activities.length > 1
+              ? '<button class="btn red small js-del-act" data-index="' + i + '">Borrar</button>'
+              : "") +
+            "</div>";
         }).join("") +
         '<p class="muted" style="margin-top:8px">Desmarcá una actividad si no llegás a hacerla; queda guardada para otra sesión.</p>' +
         '<div class="row" style="margin-top:8px">' +
@@ -766,6 +794,15 @@ const App = {
         this.performAction("toggleActivity", { index: Number(cb.dataset.index) });
       };
     });
+    document.querySelectorAll(".js-del-act").forEach((b) => {
+      b.onclick = () => {
+        const i = Number(b.dataset.index);
+        const victim = this.state.activities[i];
+        if (!victim) return;
+        const ok = confirm('¿Borrar la actividad "' + victim.titulo + '"? Se pierde su contenido y no se puede deshacer.');
+        if (ok) this.performAction("deleteActivity", { index: i });
+      };
+    });
     const addActivityBtn = document.getElementById("add-activity");
     if (addActivityBtn) addActivityBtn.onclick = () => {
       const titulo = document.getElementById("new-act-titulo").value;
@@ -824,7 +861,10 @@ const App = {
         Sync.sendToHost({ type: "join", player: this.player });
         if (st && !st.players.find((p) => p.id === this.player.id)) {
           st.players.push(this.player);
-          Sync.saveLocal(st);
+          // Solo persistimos la sala cuando no hay link en vivo (mismo navegador
+          // que el docente). Con link, guardarla dejaría una copia vieja que el
+          // sondeo devolvería encima del estado real.
+          if (!Sync.isLive()) Sync.saveLocal(st);
           this.state = st;
         }
         this.render();
@@ -846,10 +886,10 @@ const App = {
       app.innerHTML = '<div class="shell"><div class="topbar"><div class="brand"><b>' + escapeHtml(teamName) + "</b>" +
         escapeHtml(this.player.name) + '</div><div class="pill">' + this.state.scores[this.player.teamId] + " pts</div></div>" +
         '<div class="wait-screen paper"><div class="kicker">' + escapeHtml(act.titulo) + " · " + (revealed ? "Ronda cerrada" : "Esperando al profe y al resto") + "</div>" +
-        '<h2 class="serif" style="color:var(--ink)">' + (revealed ? "Ya está el fallo" : "Cuando estén todes, largan la ronda") + "</h2>" +
+        '<h2 class="serif" style="color:var(--ink)">' + (revealed ? "Ya está el fallo" : "Cuando estén todas, largan la ronda") + "</h2>" +
         (revealed
           ? "<p>" + escapeHtml(typeDef.decisionLabel) + " oficial: <b>" + escapeHtml((typeDef.sellos.find((s) => s.id === caso.falloOficial) || {}).label || "—") + "</b></p><p class=\"muted\">" + escapeHtml(caso.base) + "</p>"
-          : '<p class="muted">Ya estás adentro. El profe elige la actividad y da inicio.</p>') +
+          : '<p class="muted">Ya estás adentro.</p>') +
         "</div></div>";
       return;
     }
