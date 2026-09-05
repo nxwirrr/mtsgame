@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
 :root {
   --bg0: #07021a;
@@ -125,11 +126,53 @@ const CASES0 = [
   }
 ];
 
-const SELLOS = [
-  { id: "aprueba", label: "Aprueba" },
-  { id: "observaciones", label: "Aprueba con observaciones" },
-  { id: "desaprueba", label: "Desaprueba" }
-];
+const ACTIVITY_TYPES = {
+  dictamen: {
+    label: "Dictamen · estado de la cuestión",
+    itemNoun: "Párrafo",
+    promptLabel: "Pregunta de investigación",
+    contentLabel: "Párrafo / fragmento",
+    decisionLabel: "Fallo",
+    sellos: [
+      { id: "aprueba", label: "Aprueba" },
+      { id: "observaciones", label: "Aprueba con observaciones" },
+      { id: "desaprueba", label: "Desaprueba" }
+    ]
+  },
+  tarjetas: {
+    label: "Tarjetas de antecedentes",
+    itemNoun: "Tarjeta",
+    promptLabel: "Tema / eje de la tarjeta",
+    contentLabel: "Dato del antecedente",
+    decisionLabel: "¿La incluirían?",
+    sellos: [
+      { id: "relevante", label: "Relevante" },
+      { id: "no_relevante", label: "No relevante" }
+    ]
+  }
+};
+
+function activityTypeOf(activity) {
+  return ACTIVITY_TYPES[activity.kind] || ACTIVITY_TYPES.dictamen;
+}
+
+function emptyCaseFor(kind) {
+  const def = ACTIVITY_TYPES[kind] || ACTIVITY_TYPES.dictamen;
+  return { id: uid(), titulo: "", pregunta: "", fragmento: "", falloOficial: def.sellos[0].id, base: "", claves: [] };
+}
+
+function newActivity(kind, titulo) {
+  const safeKind = ACTIVITY_TYPES[kind] ? kind : "dictamen";
+  const def = ACTIVITY_TYPES[safeKind];
+  return {
+    id: uid(),
+    kind: safeKind,
+    titulo: (titulo || "").trim() || def.label,
+    activa: true,
+    seconds: 90,
+    cases: [emptyCaseFor(safeKind)]
+  };
+}
 
 const storeKey = (code) => "dictamen-sala-" + code;
 
@@ -163,23 +206,35 @@ function emptyAnswers() {
 }
 
 function defaultState(code) {
+  const dictamenActividad = {
+    id: uid(),
+    kind: "dictamen",
+    titulo: "Estado de la cuestión",
+    activa: true,
+    seconds: 90,
+    cases: JSON.parse(JSON.stringify(CASES0))
+  };
   return {
     code,
     phase: "lobby",
+    activityIndex: 0,
     caseIndex: 0,
-    seconds: 90,
-    remaining: 90,
+    remaining: dictamenActividad.seconds,
     endsAt: null,
     scores: { t1: 0, t2: 0, t3: 0, t4: 0 },
     answers: emptyAnswers(),
     players: [],
-    cases: JSON.parse(JSON.stringify(CASES0)),
+    activities: [dictamenActividad],
     reveal: false,
     editorId: null
   };
 }
 
-function currentCase(state) { return state.cases[state.caseIndex] || state.cases[0]; }
+function currentActivity(state) { return state.activities[state.activityIndex] || state.activities[0]; }
+function currentCase(state) {
+  const act = currentActivity(state);
+  return act.cases[state.caseIndex] || act.cases[0];
+}
 
 function suggestAI(answer, caso) {
   const selloOk = answer.sello && answer.sello === caso.falloOficial;
@@ -197,6 +252,59 @@ function suggestAI(answer, caso) {
   if (cerca === "medias") rec = "Sugerencia: A MEDIAS.";
   if (cerca === "vacio") rec = "No hay dictamen.";
   return { selloOk, cerca, hits, texto: selloTxt + " " + keyTxt + " " + rec };
+}
+
+function applyHostAction(state, action) {
+  if (action.kind === "start") {
+    const act = currentActivity(state);
+    state.answers = emptyAnswers();
+    state.phase = "play";
+    state.remaining = act.seconds;
+    state.endsAt = Date.now() + act.seconds * 1000;
+    state.reveal = false;
+  } else if (action.kind === "nextc") {
+    const act = currentActivity(state);
+    state.caseIndex = (state.caseIndex + 1) % act.cases.length;
+    state.phase = "lobby";
+    state.answers = emptyAnswers();
+  } else if (action.kind === "prevc") {
+    const act = currentActivity(state);
+    state.caseIndex = (state.caseIndex - 1 + act.cases.length) % act.cases.length;
+    state.phase = "lobby";
+  } else if (action.kind === "freeze") {
+    TEAMS.forEach((t) => { state.answers[t.id].sent = true; });
+    state.phase = "judge";
+    state.remaining = 0;
+    state.endsAt = null;
+  } else if (action.kind === "judge") {
+    if (state.answers[action.teamId]) state.answers[action.teamId].judged = action.v;
+  } else if (action.kind === "reveal") {
+    const casoNow = currentCase(state);
+    TEAMS.forEach((t) => {
+      const a = state.answers[t.id];
+      if (a.sello === casoNow.falloOficial) state.scores[t.id] += 2;
+      if (a.judged === "suma") state.scores[t.id] += 3;
+      if (a.judged === "medias") state.scores[t.id] += 1;
+    });
+    state.phase = "score";
+    state.reveal = true;
+  } else if (action.kind === "switchActivity") {
+    if (state.activities[action.index]) {
+      state.activityIndex = action.index;
+      state.caseIndex = 0;
+      state.phase = "lobby";
+      state.answers = emptyAnswers();
+      state.reveal = false;
+    }
+  } else if (action.kind === "toggleActivity") {
+    const act = state.activities[action.index];
+    if (act) act.activa = !act.activa;
+  } else if (action.kind === "addActivity") {
+    state.activities.push(newActivity(action.activityKind, action.titulo));
+    state.activityIndex = state.activities.length - 1;
+    state.caseIndex = 0;
+    state.phase = "lobby";
+  }
 }
 
 const Sync = {
@@ -229,31 +337,47 @@ const Sync = {
       state.answers[msg.teamId] = Object.assign({}, cur, msg.payload, { sent: msg.type === "submit" ? true : cur.sent });
       this.saveLocal(state);
     }
+    if (msg.type === "hostAction" && msg.action) {
+      applyHostAction(state, msg.action);
+      this.saveLocal(state);
+    }
     return true;
   },
   startHost(code, getState, applyRemote) {
     this.role = "host"; this.code = code; this.conns = [];
     if (typeof Peer === "undefined") return;
-    try {
-      this.peer = new Peer("dic" + code.toLowerCase());
-      this.peer.on("connection", (conn) => {
-        this.conns.push(conn);
-        conn.on("open", () => conn.send({ type: "state", state: getState() }));
-        conn.on("data", applyRemote);
-        conn.on("close", () => { this.conns = this.conns.filter((c) => c !== conn); });
-      });
-    } catch (e) {}
+    const open = () => {
+      try {
+        this.peer = new Peer("dic" + code.toLowerCase());
+        this.peer.on("connection", (conn) => {
+          this.conns.push(conn);
+          conn.on("open", () => conn.send({ type: "state", state: getState() }));
+          conn.on("data", applyRemote);
+          conn.on("close", () => { this.conns = this.conns.filter((c) => c !== conn); });
+        });
+        this.peer.on("error", (err) => {
+          if (err && err.type === "unavailable-id") setTimeout(open, 3000);
+        });
+      } catch (e) {}
+    };
+    open();
   },
   startStudent(code, onState, sendBuffer) {
     this.role = "student"; this.code = code;
     if (typeof Peer === "undefined") return;
     try {
       this.peer = new Peer();
-      this.peer.on("open", () => {
-        this.studentConn = this.peer.connect("dic" + code.toLowerCase());
-        this.studentConn.on("open", () => { (sendBuffer || []).forEach((m) => this.studentConn.send(m)); });
-        this.studentConn.on("data", (msg) => { if (msg.type === "state") onState(msg.state); });
-      });
+      const connect = (attempt) => {
+        const conn = this.peer.connect("dic" + code.toLowerCase(), { reliable: true });
+        this.studentConn = conn;
+        conn.on("open", () => { (sendBuffer || []).forEach((m) => conn.send(m)); });
+        conn.on("data", (msg) => { if (msg.type === "state") onState(msg.state); });
+        const retry = () => { if (attempt < 8) setTimeout(() => connect(attempt + 1), 2000); };
+        conn.on("error", retry);
+        conn.on("close", retry);
+      };
+      this.peer.on("open", () => connect(0));
+      this.peer.on("error", () => {});
     } catch (e) {}
   }
 };
@@ -326,15 +450,26 @@ const App = {
       this.state = Sync.loadLocal(this.code) || defaultState(this.code);
       const staffKey = "dictamen-editor-" + this.code;
       let staffId = sessionStorage.getItem(staffKey);
-      if (!this.state.editorId) {
-        staffId = staffId || uid();
+      if (!staffId) {
+        staffId = uid();
         sessionStorage.setItem(staffKey, staffId);
-        this.state.editorId = staffId;
-        Sync.saveLocal(this.state);
       }
       this.staffId = staffId;
-      this.canEdit = this.state.editorId && staffId && this.state.editorId === staffId;
-      Sync.startHost(this.code, () => this.state, (msg) => this.hostReceive(msg));
+      this.canEdit = !!(this.state.editorId && this.state.editorId === staffId);
+      if (this.canEdit) {
+        Sync.startHost(this.code, () => this.state, (msg) => this.hostReceive(msg));
+      } else {
+        Sync.startStudent(this.code, (st) => {
+          const prevPhase = this.state && this.state.phase;
+          this.state = st;
+          if (st.phase === "play") {
+            if (prevPhase !== "play") this.render();
+            else this.tickOnly();
+            return;
+          }
+          this.render();
+        }, []);
+      }
       this.startPoll();
       this.ensureTimer();
       this.render();
@@ -385,6 +520,20 @@ const App = {
       if (this.state.phase === "play") this.patchHostLive();
       else this.render();
     }
+    if (msg.type === "hostAction" && msg.action) {
+      applyHostAction(this.state, msg.action);
+      this.setState(this.state);
+    }
+  },
+
+  performAction(kind, extra) {
+    const action = Object.assign({ kind }, extra || {});
+    if (this.canEdit) {
+      applyHostAction(this.state, action);
+      this.setState(this.state);
+    } else {
+      Sync.sendToHost({ type: "hostAction", action });
+    }
   },
 
   ensureTimer() {
@@ -395,20 +544,12 @@ const App = {
       this.state.remaining = left;
       const el = document.getElementById("live-timer");
       if (el) el.textContent = String(left);
-      if (left === 0) this.freezeRound();
+      if (left === 0 && this.canEdit) this.freezeRound();
     }, 250);
   },
 
   freezeRound() {
-    const st = this.state;
-    TEAMS.forEach((t) => {
-      const a = st.answers[t.id];
-      a.sent = true;
-    });
-    st.phase = "judge";
-    st.remaining = 0;
-    st.endsAt = null;
-    this.setState(Object.assign({}, st));
+    this.performAction("freeze");
   },
 
   render() {
@@ -422,9 +563,9 @@ const App = {
       '<div class="shell"><div class="topbar"><div class="brand"><b>Mi primer dictamen</b>marco teórico</div></div>' +
       '<div class="hero-card"><div class="kicker">Concurso de aula</div>' +
       "<h1>Mi primer dictamen</h1>" +
-      '<p class="lead">Cargás los párrafos, ellas sellan y escriben el porqué. Cuando se congela el tiempo, el profe y las ayudantes juzgan en vivo.</p>' +
+      '<p class="lead">Cargás una o varias actividades (dictamen, tarjetas de antecedentes y las que sumes), ellas deciden y escriben el porqué. Cuando se congela el tiempo, el profe y las ayudantes juzgan en vivo.</p>' +
       '<div class="grid-2">' +
-      '<button class="choice" id="btn-create"><strong>Crear sala</strong><small>Primera persona: carga los párrafos</small></button>' +
+      '<button class="choice" id="btn-create"><strong>Crear sala</strong><small>Primera persona: carga las actividades</small></button>' +
       '<button class="choice alt" id="btn-staff"><strong>Soy ayudante</strong><small>Entro con el código a juzgar, sin editar</small></button>' +
       "</div>" +
       '<button class="choice" id="btn-join-panel" style="margin-top:10px;background:linear-gradient(135deg,#ffe14d,#ff2e8a);color:#12081f"><strong>Soy estudiante</strong><small>El equipo se asigna solo al entrar</small></button>' +
@@ -466,6 +607,8 @@ const App = {
 
   renderHost() {
     const st = this.state;
+    const act = currentActivity(st);
+    const typeDef = activityTypeOf(act);
     const caso = currentCase(st);
     const live = Math.max(0, st.remaining);
     const joined = TEAMS.map((t) => ({
@@ -477,33 +620,63 @@ const App = {
     let body = "";
 
     if (st.phase === "lobby" || st.phase === "score") {
-      body =
-        '<div class="grid-2"><div class="paper">' +
-        '<div class="kicker">' + escapeHtml(caso.titulo || ("Párrafo " + (st.caseIndex + 1))) + "</div>" +
-        '<div class="qbox"><b>Pregunta de investigación</b><br>' + escapeHtml(caso.pregunta) + "</div>" +
+      const left =
+        '<div class="kicker">' + escapeHtml(act.titulo) + " · " + escapeHtml(caso.titulo || (typeDef.itemNoun + " " + (st.caseIndex + 1))) + "</div>" +
+        '<div class="qbox"><b>' + escapeHtml(typeDef.promptLabel) + "</b><br>" + escapeHtml(caso.pregunta) + "</div>" +
         '<p class="fragment">' + escapeHtml(caso.fragmento) + "</p>" +
-        '<p class="muted" style="margin-top:10px">Fallo oficial: <b>' + escapeHtml(SELLOS.find((s) => s.id === caso.falloOficial).label) + "</b></p>" +
+        '<p class="muted" style="margin-top:10px">' + escapeHtml(typeDef.decisionLabel) + " oficial: <b>" +
+        escapeHtml((typeDef.sellos.find((s) => s.id === caso.falloOficial) || {}).label || "—") + "</b></p>" +
         '<p class="muted" id="people-count">' + nPeople + " en la sala</p>" +
-        '<p class="muted">Cuando estén el profe y las estudiantes, largá la ronda. No hace falta que estén las 14 para probar.</p>' +
+        '<label style="margin-top:12px">Actividad en curso</label>' +
+        '<select id="act-select">' +
+        st.activities.map((a, i) => '<option value="' + i + '"' + (i === st.activityIndex ? " selected" : "") +
+          (a.activa ? "" : " disabled") + ">" + escapeHtml(a.titulo) + (a.activa ? "" : " (inactiva)") + "</option>").join("") +
+        "</select>" +
         '<div class="row" style="margin-top:12px">' +
         '<button class="btn gold" id="start">Iniciar ronda</button>' +
         '<button class="btn ghost" id="prevc">Anterior</button>' +
-        '<button class="btn ghost" id="nextc">Siguiente párrafo</button></div></div>' +
-        (this.canEdit ? (
-        '<div class="paper"><div class="kicker">Cargar / editar párrafo</div>' +
+        '<button class="btn ghost" id="nextc">Siguiente ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + "</button></div>";
+
+      const activitiesManager =
+        '<div class="kicker">Actividades de la sala</div>' +
+        st.activities.map((a, i) => {
+          const def = activityTypeOf(a);
+          return '<label style="display:flex;align-items:center;gap:8px;border:2px solid #f5b4d8;border-radius:12px;padding:8px 10px;margin-top:8px;font-weight:400">' +
+            '<input type="checkbox" class="js-toggle-act" data-index="' + i + '"' + (a.activa ? " checked" : "") + ' style="width:auto" />' +
+            '<span style="flex:1">' + escapeHtml(a.titulo) + ' <span class="muted">(' + escapeHtml(def.label) + ", " + a.cases.length + ")</span></span>" +
+            "</label>";
+        }).join("") +
+        '<p class="muted" style="margin-top:8px">Desmarcá una actividad si no llegás a hacerla; queda guardada para otra sesión.</p>' +
+        '<div class="row" style="margin-top:8px">' +
+        '<input id="new-act-titulo" placeholder="Nombre de la nueva actividad" style="flex:2" />' +
+        '<select id="new-act-kind" style="flex:1">' +
+        Object.keys(ACTIVITY_TYPES).map((k) => '<option value="' + k + '">' + escapeHtml(ACTIVITY_TYPES[k].label) + "</option>").join("") +
+        "</select>" +
+        '<button class="btn cyan" id="add-activity">+ Agregar actividad</button></div>';
+
+      const editForm =
+        '<div class="kicker">Cargar / editar ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + " · " + escapeHtml(act.titulo) + "</div>" +
         '<label>Título</label><input id="f-titulo" value="' + escapeHtml(caso.titulo || "") + '" />' +
-        '<label style="margin-top:8px">Pregunta de investigación</label><textarea id="f-preg" style="min-height:70px">' + escapeHtml(caso.pregunta || "") + "</textarea>" +
-        '<label style="margin-top:8px">Párrafo / fragmento</label><textarea id="f-frag">' + escapeHtml(caso.fragmento || "") + "</textarea>" +
-        '<label style="margin-top:8px">Fallo oficial</label><select id="f-fallo">' +
-        SELLOS.map((s) => '<option value="' + s.id + '"' + (caso.falloOficial === s.id ? " selected" : "") + ">" + s.label + "</option>").join("") +
+        '<label style="margin-top:8px">' + escapeHtml(typeDef.promptLabel) + '</label><textarea id="f-preg" style="min-height:70px">' + escapeHtml(caso.pregunta || "") + "</textarea>" +
+        '<label style="margin-top:8px">' + escapeHtml(typeDef.contentLabel) + '</label><textarea id="f-frag">' + escapeHtml(caso.fragmento || "") + "</textarea>" +
+        '<label style="margin-top:8px">' + escapeHtml(typeDef.decisionLabel) + ' oficial</label><select id="f-fallo">' +
+        typeDef.sellos.map((s) => '<option value="' + s.id + '"' + (caso.falloOficial === s.id ? " selected" : "") + ">" + s.label + "</option>").join("") +
         "</select>" +
         '<label style="margin-top:8px">Respuesta base (por qué)</label><textarea id="f-base" style="min-height:80px">' + escapeHtml(caso.base || "") + "</textarea>" +
-        '<label style="margin-top:8px">Segundos</label><input id="secs" type="number" min="20" max="300" value="' + st.seconds + '" />' +
+        '<label style="margin-top:8px">Segundos</label><input id="secs" type="number" min="20" max="300" value="' + act.seconds + '" />' +
         '<div class="row" style="margin-top:12px">' +
-        '<button class="btn cyan" id="save-case">Guardar este párrafo</button>' +
-        '<button class="btn ghost" id="add-case">Agregar otro vacío</button></div>' +
-        '<p class="muted" style="margin-top:10px">Párrafo ' + (st.caseIndex + 1) + " de " + st.cases.length + "</p></div>"
-        ) : '<div class="paper"><div class="kicker">Ayudante</div><p>Solo quien creó la sala puede editar los párrafos. Vos juzgás cuando se congelen las respuestas.</p></div>') +
+        '<button class="btn cyan" id="save-case">Guardar</button>' +
+        '<button class="btn ghost" id="add-case">Agregar ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + " vacío</button></div>" +
+        '<p class="muted" style="margin-top:10px">' + escapeHtml(typeDef.itemNoun) + " " + (st.caseIndex + 1) + " de " + act.cases.length + "</p>";
+
+      body =
+        '<div class="grid-2"><div class="paper">' + left + "</div>" +
+        (this.canEdit
+          ? '<div style="display:flex;flex-direction:column;gap:14px">' +
+            '<div class="paper">' + activitiesManager + "</div>" +
+            '<div class="paper">' + editForm + "</div>" +
+            "</div>"
+          : '<div class="paper"><div class="kicker">Ayudante</div><p>Solo quien creó la sala puede editar el contenido y las actividades. Vos elegís la actividad en curso, largás la ronda y juzgás cuando se congelen las respuestas.</p></div>') +
         "</div>";
     }
 
@@ -529,12 +702,12 @@ const App = {
       body =
         '<div class="paper" style="margin-bottom:12px"><div class="kicker">El profe y las ayudantes deliberan</div>' +
         '<p><b>Base:</b> ' + escapeHtml(caso.base) + "</p>" +
-        '<p class="muted">Fallo oficial: ' + escapeHtml(SELLOS.find((s) => s.id === caso.falloOficial).label) + "</p></div>" +
+        '<p class="muted">' + escapeHtml(typeDef.decisionLabel) + " oficial: " + escapeHtml((typeDef.sellos.find((s) => s.id === caso.falloOficial) || {}).label || "—") + "</p></div>" +
         '<div class="judge-grid">' +
         joined.map((t) => {
           const a = t.ans;
           const selloOk = a.sello && a.sello === caso.falloOficial;
-          const selloLabel = SELLOS.find((s) => s.id === a.sello)?.label || "Sin sello";
+          const selloLabel = (typeDef.sellos.find((s) => s.id === a.sello) || {}).label || "Sin elegir";
           return '<div class="paper"><div class="row" style="justify-content:space-between;align-items:center">' +
             "<b>" + escapeHtml(t.name) + '</b><span class="tag ' + (selloOk ? "ok" : "no") + '">' + escapeHtml(selloLabel) + "</span></div>" +
             '<p style="white-space:pre-wrap;margin:10px 0">' + (escapeHtml(a.porque) || "<span class='muted'>Sin texto</span>") + "</p>" +
@@ -556,13 +729,14 @@ const App = {
       "</div>" + body + "</div>";
 
     const bindSave = () => {
-      const c = this.state.cases[this.state.caseIndex];
-      c.titulo = document.getElementById("f-titulo").value.trim() || ("Párrafo " + (this.state.caseIndex + 1));
+      const curAct = currentActivity(this.state);
+      const c = curAct.cases[this.state.caseIndex];
+      c.titulo = document.getElementById("f-titulo").value.trim() || (activityTypeOf(curAct).itemNoun + " " + (this.state.caseIndex + 1));
       c.pregunta = document.getElementById("f-preg").value;
       c.fragmento = document.getElementById("f-frag").value;
       c.falloOficial = document.getElementById("f-fallo").value;
       c.base = document.getElementById("f-base").value;
-      this.state.seconds = Number(document.getElementById("secs").value || 90);
+      curAct.seconds = Number(document.getElementById("secs").value || 90);
       this.setState(this.state);
     };
     const saveBtn = document.getElementById("save-case");
@@ -570,60 +744,51 @@ const App = {
     const addBtn = document.getElementById("add-case");
     if (addBtn) addBtn.onclick = () => {
       if (document.getElementById("f-titulo")) bindSave();
-      this.state.cases.push({
-        id: uid(), titulo: "Párrafo " + (this.state.cases.length + 1),
-        pregunta: "", fragmento: "", falloOficial: "observaciones", base: ""
-      });
-      this.state.caseIndex = this.state.cases.length - 1;
+      const curAct = currentActivity(this.state);
+      curAct.cases.push(emptyCaseFor(curAct.kind));
+      this.state.caseIndex = curAct.cases.length - 1;
       this.setState(this.state);
+    };
+    const actSelect = document.getElementById("act-select");
+    if (actSelect) actSelect.onchange = () => {
+      this.performAction("switchActivity", { index: Number(actSelect.value) });
+    };
+    document.querySelectorAll(".js-toggle-act").forEach((cb) => {
+      cb.onchange = () => {
+        this.performAction("toggleActivity", { index: Number(cb.dataset.index) });
+      };
+    });
+    const addActivityBtn = document.getElementById("add-activity");
+    if (addActivityBtn) addActivityBtn.onclick = () => {
+      const titulo = document.getElementById("new-act-titulo").value;
+      const activityKind = document.getElementById("new-act-kind").value;
+      this.performAction("addActivity", { activityKind, titulo });
     };
     const start = document.getElementById("start");
     if (start) start.onclick = () => {
       if (document.getElementById("f-titulo")) bindSave();
-      this.state.answers = emptyAnswers();
-      this.state.phase = "play";
-      this.state.remaining = this.state.seconds;
-      this.state.endsAt = Date.now() + this.state.seconds * 1000;
-      this.state.reveal = false;
-      this.setState(this.state);
+      this.performAction("start");
       this.ensureTimer();
     };
     const nextc = document.getElementById("nextc");
     if (nextc) nextc.onclick = () => {
       if (document.getElementById("f-titulo")) bindSave();
-      this.state.caseIndex = (this.state.caseIndex + 1) % this.state.cases.length;
-      this.state.phase = "lobby";
-      this.state.answers = emptyAnswers();
-      this.setState(this.state);
+      this.performAction("nextc");
     };
     const prevc = document.getElementById("prevc");
     if (prevc) prevc.onclick = () => {
       if (document.getElementById("f-titulo")) bindSave();
-      this.state.caseIndex = (this.state.caseIndex - 1 + this.state.cases.length) % this.state.cases.length;
-      this.state.phase = "lobby";
-      this.setState(this.state);
+      this.performAction("prevc");
     };
     const freeze = document.getElementById("freeze");
-    if (freeze) freeze.onclick = () => this.freezeRound();
+    if (freeze) freeze.onclick = () => this.performAction("freeze");
     document.querySelectorAll(".js-j").forEach((b) => {
       b.onclick = () => {
-        this.state.answers[b.dataset.team].judged = b.dataset.v;
-        this.setState(this.state);
+        this.performAction("judge", { teamId: b.dataset.team, v: b.dataset.v });
       };
     });
     const reveal = document.getElementById("reveal");
-    if (reveal) reveal.onclick = () => {
-      const casoNow = currentCase(this.state);
-      TEAMS.forEach((t) => {
-        const a = this.state.answers[t.id];
-        if (a.sello === casoNow.falloOficial) this.state.scores[t.id] += 2;
-        if (a.judged === "suma") this.state.scores[t.id] += 3;
-        if (a.judged === "medias") this.state.scores[t.id] += 1;
-      });
-      this.state.phase = "score";
-      this.state.reveal = true;
-      this.setState(this.state);
-    };
+    if (reveal) reveal.onclick = () => this.performAction("reveal");
   },
 
   renderStudent() {
@@ -659,6 +824,8 @@ const App = {
       return;
     }
 
+    const act = currentActivity(this.state);
+    const typeDef = activityTypeOf(act);
     const caso = currentCase(this.state);
     const mine = this.state.answers[this.player.teamId] || emptyAnswers()[this.player.teamId];
     const live = this.state.phase === "play"
@@ -670,11 +837,11 @@ const App = {
       const revealed = this.state.reveal;
       app.innerHTML = '<div class="shell"><div class="topbar"><div class="brand"><b>' + escapeHtml(teamName) + "</b>" +
         escapeHtml(this.player.name) + '</div><div class="pill">' + this.state.scores[this.player.teamId] + " pts</div></div>" +
-        '<div class="wait-screen paper"><div class="kicker">' + (revealed ? "Ronda cerrada" : "Esperando al profe y al resto") + "</div>" +
+        '<div class="wait-screen paper"><div class="kicker">' + escapeHtml(act.titulo) + " · " + (revealed ? "Ronda cerrada" : "Esperando al profe y al resto") + "</div>" +
         '<h2 class="serif" style="color:var(--ink)">' + (revealed ? "Ya está el fallo" : "Cuando estén todes, largan la ronda") + "</h2>" +
         (revealed
-          ? "<p>Fallo oficial: <b>" + escapeHtml(SELLOS.find((s) => s.id === caso.falloOficial).label) + "</b></p><p class=\"muted\">" + escapeHtml(caso.base) + "</p>"
-          : '<p class="muted">Ya estás adentro. El profe carga los párrafos y da inicio.</p>') +
+          ? "<p>" + escapeHtml(typeDef.decisionLabel) + " oficial: <b>" + escapeHtml((typeDef.sellos.find((s) => s.id === caso.falloOficial) || {}).label || "—") + "</b></p><p class=\"muted\">" + escapeHtml(caso.base) + "</p>"
+          : '<p class="muted">Ya estás adentro. El profe elige la actividad y da inicio.</p>') +
         "</div></div>";
       return;
     }
@@ -688,12 +855,12 @@ const App = {
 
     app.innerHTML = '<div class="shell"><div class="topbar"><div class="brand"><b>' + escapeHtml(teamName) + "</b></div>" +
       '<div class="pill" style="font-size:28px;padding:4px 14px" id="live-timer">' + live + "</div></div>" +
-      '<div class="paper"><div class="qbox"><b>Pregunta de investigación</b><br>' + escapeHtml(caso.pregunta) + "</div>" +
+      '<div class="paper"><div class="kicker">' + escapeHtml(act.titulo) + '</div><div class="qbox"><b>' + escapeHtml(typeDef.promptLabel) + "</b><br>" + escapeHtml(caso.pregunta) + "</div>" +
       '<p class="fragment">' + escapeHtml(caso.fragmento) + "</p></div>" +
-      '<div class="paper" style="margin-top:12px"><label>Fallo</label><div class="stamp-row">' +
-      SELLOS.map((s) => '<button type="button" class="stamp ' + (mine.sello === s.id ? "on-" + s.id : "") + ' js-sello" data-id="' + s.id + '">' + s.label + "</button>").join("") +
+      '<div class="paper" style="margin-top:12px"><label>' + escapeHtml(typeDef.decisionLabel) + '</label><div class="stamp-row">' +
+      typeDef.sellos.map((s) => '<button type="button" class="stamp ' + (mine.sello === s.id ? "on-" + s.id : "") + ' js-sello" data-id="' + s.id + '">' + s.label + "</button>").join("") +
       '</div><label style="margin-top:14px">Por qué</label>' +
-      '<textarea id="porque" placeholder="Escriban el dictamen. Si se congela el tiempo, se manda así como esté."></textarea>' +
+      '<textarea id="porque" placeholder="Escriban su respuesta. Si se congela el tiempo, se manda así como esté."></textarea>' +
       '<div class="row" style="margin-top:10px"><button class="btn gold" id="send">Enviar dictamen</button>' +
       '<span class="muted" id="sent-flag">' + (mine.sent ? "Ya hay un envío. Pueden seguir editando hasta que cierre el tiempo." : "Puede enviar una o todas.") + "</span></div></div></div>";
 
