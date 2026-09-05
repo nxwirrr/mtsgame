@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
 :root {
   --bg0: #07021a;
@@ -199,6 +200,40 @@ function suggestAI(answer, caso) {
   return { selloOk, cerca, hits, texto: selloTxt + " " + keyTxt + " " + rec };
 }
 
+function applyHostAction(state, action) {
+  const casoNow = currentCase(state);
+  if (action.kind === "start") {
+    state.answers = emptyAnswers();
+    state.phase = "play";
+    state.remaining = state.seconds;
+    state.endsAt = Date.now() + state.seconds * 1000;
+    state.reveal = false;
+  } else if (action.kind === "nextc") {
+    state.caseIndex = (state.caseIndex + 1) % state.cases.length;
+    state.phase = "lobby";
+    state.answers = emptyAnswers();
+  } else if (action.kind === "prevc") {
+    state.caseIndex = (state.caseIndex - 1 + state.cases.length) % state.cases.length;
+    state.phase = "lobby";
+  } else if (action.kind === "freeze") {
+    TEAMS.forEach((t) => { state.answers[t.id].sent = true; });
+    state.phase = "judge";
+    state.remaining = 0;
+    state.endsAt = null;
+  } else if (action.kind === "judge") {
+    if (state.answers[action.teamId]) state.answers[action.teamId].judged = action.v;
+  } else if (action.kind === "reveal") {
+    TEAMS.forEach((t) => {
+      const a = state.answers[t.id];
+      if (a.sello === casoNow.falloOficial) state.scores[t.id] += 2;
+      if (a.judged === "suma") state.scores[t.id] += 3;
+      if (a.judged === "medias") state.scores[t.id] += 1;
+    });
+    state.phase = "score";
+    state.reveal = true;
+  }
+}
+
 const Sync = {
   role: null, code: null, peer: null, conns: [], studentConn: null,
   saveLocal(state) {
@@ -229,31 +264,47 @@ const Sync = {
       state.answers[msg.teamId] = Object.assign({}, cur, msg.payload, { sent: msg.type === "submit" ? true : cur.sent });
       this.saveLocal(state);
     }
+    if (msg.type === "hostAction" && msg.action) {
+      applyHostAction(state, msg.action);
+      this.saveLocal(state);
+    }
     return true;
   },
   startHost(code, getState, applyRemote) {
     this.role = "host"; this.code = code; this.conns = [];
     if (typeof Peer === "undefined") return;
-    try {
-      this.peer = new Peer("dic" + code.toLowerCase());
-      this.peer.on("connection", (conn) => {
-        this.conns.push(conn);
-        conn.on("open", () => conn.send({ type: "state", state: getState() }));
-        conn.on("data", applyRemote);
-        conn.on("close", () => { this.conns = this.conns.filter((c) => c !== conn); });
-      });
-    } catch (e) {}
+    const open = () => {
+      try {
+        this.peer = new Peer("dic" + code.toLowerCase());
+        this.peer.on("connection", (conn) => {
+          this.conns.push(conn);
+          conn.on("open", () => conn.send({ type: "state", state: getState() }));
+          conn.on("data", applyRemote);
+          conn.on("close", () => { this.conns = this.conns.filter((c) => c !== conn); });
+        });
+        this.peer.on("error", (err) => {
+          if (err && err.type === "unavailable-id") setTimeout(open, 3000);
+        });
+      } catch (e) {}
+    };
+    open();
   },
   startStudent(code, onState, sendBuffer) {
     this.role = "student"; this.code = code;
     if (typeof Peer === "undefined") return;
     try {
       this.peer = new Peer();
-      this.peer.on("open", () => {
-        this.studentConn = this.peer.connect("dic" + code.toLowerCase());
-        this.studentConn.on("open", () => { (sendBuffer || []).forEach((m) => this.studentConn.send(m)); });
-        this.studentConn.on("data", (msg) => { if (msg.type === "state") onState(msg.state); });
-      });
+      const connect = (attempt) => {
+        const conn = this.peer.connect("dic" + code.toLowerCase(), { reliable: true });
+        this.studentConn = conn;
+        conn.on("open", () => { (sendBuffer || []).forEach((m) => conn.send(m)); });
+        conn.on("data", (msg) => { if (msg.type === "state") onState(msg.state); });
+        const retry = () => { if (attempt < 8) setTimeout(() => connect(attempt + 1), 2000); };
+        conn.on("error", retry);
+        conn.on("close", retry);
+      };
+      this.peer.on("open", () => connect(0));
+      this.peer.on("error", () => {});
     } catch (e) {}
   }
 };
@@ -326,15 +377,26 @@ const App = {
       this.state = Sync.loadLocal(this.code) || defaultState(this.code);
       const staffKey = "dictamen-editor-" + this.code;
       let staffId = sessionStorage.getItem(staffKey);
-      if (!this.state.editorId) {
-        staffId = staffId || uid();
+      if (!staffId) {
+        staffId = uid();
         sessionStorage.setItem(staffKey, staffId);
-        this.state.editorId = staffId;
-        Sync.saveLocal(this.state);
       }
       this.staffId = staffId;
-      this.canEdit = this.state.editorId && staffId && this.state.editorId === staffId;
-      Sync.startHost(this.code, () => this.state, (msg) => this.hostReceive(msg));
+      this.canEdit = !!(this.state.editorId && this.state.editorId === staffId);
+      if (this.canEdit) {
+        Sync.startHost(this.code, () => this.state, (msg) => this.hostReceive(msg));
+      } else {
+        Sync.startStudent(this.code, (st) => {
+          const prevPhase = this.state && this.state.phase;
+          this.state = st;
+          if (st.phase === "play") {
+            if (prevPhase !== "play") this.render();
+            else this.tickOnly();
+            return;
+          }
+          this.render();
+        }, []);
+      }
       this.startPoll();
       this.ensureTimer();
       this.render();
@@ -385,6 +447,20 @@ const App = {
       if (this.state.phase === "play") this.patchHostLive();
       else this.render();
     }
+    if (msg.type === "hostAction" && msg.action) {
+      applyHostAction(this.state, msg.action);
+      this.setState(this.state);
+    }
+  },
+
+  performAction(kind, extra) {
+    const action = Object.assign({ kind }, extra || {});
+    if (this.canEdit) {
+      applyHostAction(this.state, action);
+      this.setState(this.state);
+    } else {
+      Sync.sendToHost({ type: "hostAction", action });
+    }
   },
 
   ensureTimer() {
@@ -395,20 +471,12 @@ const App = {
       this.state.remaining = left;
       const el = document.getElementById("live-timer");
       if (el) el.textContent = String(left);
-      if (left === 0) this.freezeRound();
+      if (left === 0 && this.canEdit) this.freezeRound();
     }, 250);
   },
 
   freezeRound() {
-    const st = this.state;
-    TEAMS.forEach((t) => {
-      const a = st.answers[t.id];
-      a.sent = true;
-    });
-    st.phase = "judge";
-    st.remaining = 0;
-    st.endsAt = null;
-    this.setState(Object.assign({}, st));
+    this.performAction("freeze");
   },
 
   render() {
@@ -580,50 +648,28 @@ const App = {
     const start = document.getElementById("start");
     if (start) start.onclick = () => {
       if (document.getElementById("f-titulo")) bindSave();
-      this.state.answers = emptyAnswers();
-      this.state.phase = "play";
-      this.state.remaining = this.state.seconds;
-      this.state.endsAt = Date.now() + this.state.seconds * 1000;
-      this.state.reveal = false;
-      this.setState(this.state);
+      this.performAction("start");
       this.ensureTimer();
     };
     const nextc = document.getElementById("nextc");
     if (nextc) nextc.onclick = () => {
       if (document.getElementById("f-titulo")) bindSave();
-      this.state.caseIndex = (this.state.caseIndex + 1) % this.state.cases.length;
-      this.state.phase = "lobby";
-      this.state.answers = emptyAnswers();
-      this.setState(this.state);
+      this.performAction("nextc");
     };
     const prevc = document.getElementById("prevc");
     if (prevc) prevc.onclick = () => {
       if (document.getElementById("f-titulo")) bindSave();
-      this.state.caseIndex = (this.state.caseIndex - 1 + this.state.cases.length) % this.state.cases.length;
-      this.state.phase = "lobby";
-      this.setState(this.state);
+      this.performAction("prevc");
     };
     const freeze = document.getElementById("freeze");
-    if (freeze) freeze.onclick = () => this.freezeRound();
+    if (freeze) freeze.onclick = () => this.performAction("freeze");
     document.querySelectorAll(".js-j").forEach((b) => {
       b.onclick = () => {
-        this.state.answers[b.dataset.team].judged = b.dataset.v;
-        this.setState(this.state);
+        this.performAction("judge", { teamId: b.dataset.team, v: b.dataset.v });
       };
     });
     const reveal = document.getElementById("reveal");
-    if (reveal) reveal.onclick = () => {
-      const casoNow = currentCase(this.state);
-      TEAMS.forEach((t) => {
-        const a = this.state.answers[t.id];
-        if (a.sello === casoNow.falloOficial) this.state.scores[t.id] += 2;
-        if (a.judged === "suma") this.state.scores[t.id] += 3;
-        if (a.judged === "medias") this.state.scores[t.id] += 1;
-      });
-      this.state.phase = "score";
-      this.state.reveal = true;
-      this.setState(this.state);
-    };
+    if (reveal) reveal.onclick = () => this.performAction("reveal");
   },
 
   renderStudent() {
