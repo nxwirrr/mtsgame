@@ -255,13 +255,32 @@ function suggestAI(answer, caso) {
   return { selloOk, cerca, hits, texto: selloTxt + " " + keyTxt + " " + rec };
 }
 
+function startRound(state) {
+  const act = currentActivity(state);
+  state.answers = emptyAnswers();
+  state.phase = "play";
+  state.remaining = act.seconds;
+  state.endsAt = Date.now() + act.seconds * 1000;
+  state.reveal = false;
+}
+
+function hasNextCase(state) {
+  return state.caseIndex + 1 < currentActivity(state).cases.length;
+}
+
 function applyHostAction(state, action) {
   if (action.kind === "start") {
-    const act = currentActivity(state);
-    state.answers = emptyAnswers();
-    state.phase = "play";
-    state.remaining = act.seconds;
-    state.endsAt = Date.now() + act.seconds * 1000;
+    startRound(state);
+  } else if (action.kind === "nextRound") {
+    // Encadena la ronda siguiente sin pasar por el panel de carga.
+    if (hasNextCase(state)) {
+      state.caseIndex += 1;
+      startRound(state);
+    }
+  } else if (action.kind === "repeatRound") {
+    startRound(state);
+  } else if (action.kind === "toLobby") {
+    state.phase = "lobby";
     state.reveal = false;
   } else if (action.kind === "nextc") {
     const act = currentActivity(state);
@@ -283,9 +302,12 @@ function applyHostAction(state, action) {
     const casoNow = currentCase(state);
     TEAMS.forEach((t) => {
       const a = state.answers[t.id];
-      if (a.sello === casoNow.falloOficial) state.scores[t.id] += 2;
-      if (a.judged === "suma") state.scores[t.id] += 3;
-      if (a.judged === "medias") state.scores[t.id] += 1;
+      let gained = 0;
+      if (a.sello === casoNow.falloOficial) gained += 2;
+      if (a.judged === "suma") gained += 3;
+      if (a.judged === "medias") gained += 1;
+      a.gained = gained;
+      state.scores[t.id] += gained;
     });
     state.phase = "score";
     state.reveal = true;
@@ -401,6 +423,8 @@ const Sync = {
 const App = {
   role: null, code: null, player: null, state: null, timerId: null, pollId: null,
   lastPhase: null, playBound: false,
+  // null = automático (abierto solo si falta cargar el ítem); true/false = elección del docente.
+  showEditor: null,
 
   setState(next, broadcast) {
     this.state = next;
@@ -648,9 +672,46 @@ const App = {
     const nPeople = st.players.length;
     let body = "";
 
-    if (st.phase === "lobby" || st.phase === "score") {
+    if (st.phase === "score") {
+      const oficial = escapeHtml((typeDef.sellos.find((s) => s.id === caso.falloOficial) || {}).label || "—");
+      const hayOtro = hasNextCase(st);
+      body =
+        '<div class="paper" style="margin-bottom:12px">' +
+        '<div class="kicker">Ronda cerrada · ' + escapeHtml(act.titulo) + " · " +
+        escapeHtml(typeDef.itemNoun) + " " + (st.caseIndex + 1) + " de " + act.cases.length + "</div>" +
+        '<h2 style="margin:8px 0 6px">' + escapeHtml(caso.titulo || (typeDef.itemNoun + " " + (st.caseIndex + 1))) + "</h2>" +
+        '<p class="muted">' + escapeHtml(typeDef.decisionLabel) + " oficial: <b>" + oficial + "</b></p>" +
+        '<p style="margin:8px 0 0">' + escapeHtml(caso.base) + "</p></div>" +
+        '<div class="grid-4">' +
+        joined.map((t) => {
+          const a = t.ans;
+          const selloOk = a.sello && a.sello === caso.falloOficial;
+          const selloLabel = (typeDef.sellos.find((s) => s.id === a.sello) || {}).label || "Sin elegir";
+          return '<div class="paper"><b>' + escapeHtml(t.name) + "</b>" +
+            '<div style="margin-top:6px"><span class="tag ' + (selloOk ? "ok" : "no") + '">' + escapeHtml(selloLabel) + "</span></div>" +
+            '<div class="pts" style="font-family:Fraunces,serif;font-size:28px;color:var(--pink)">+' + (a.gained || 0) + "</div>" +
+            '<div class="muted">total ' + st.scores[t.id] + "</div></div>";
+        }).join("") +
+        "</div>" +
+        '<div class="row" style="margin-top:12px">' +
+        (hayOtro
+          ? '<button class="btn gold" id="next-round">Siguiente ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + " e iniciar</button>" +
+            '<button class="btn ghost" id="nextc">Siguiente sin iniciar</button>'
+          : "") +
+        '<button class="btn ghost" id="repeat-round">Repetir ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + "</button>" +
+        '<button class="btn ghost" id="to-lobby">Panel y carga</button></div>' +
+        (hayOtro
+          ? ""
+          : '<p class="muted" style="margin-top:10px">Terminaron ' + act.cases.length + " " +
+            escapeHtml(act.cases.length === 1 ? typeDef.itemNoun.toLowerCase() : typeDef.itemNoun.toLowerCase() + "s") +
+            " de esta actividad. Desde <b>Panel y carga</b> podés cambiar de actividad o cargar más.</p>");
+    }
+
+    if (st.phase === "lobby") {
       const left =
-        '<div class="kicker">' + escapeHtml(act.titulo) + " · " + escapeHtml(caso.titulo || (typeDef.itemNoun + " " + (st.caseIndex + 1))) + "</div>" +
+        '<div class="kicker">' + escapeHtml(act.titulo) + " · " + escapeHtml(typeDef.itemNoun) + " " +
+        (st.caseIndex + 1) + " de " + act.cases.length + "</div>" +
+        '<h2 style="margin:8px 0 6px">' + escapeHtml(caso.titulo || (typeDef.itemNoun + " " + (st.caseIndex + 1))) + "</h2>" +
         '<div class="qbox"><b>' + escapeHtml(typeDef.promptLabel) + "</b><br>" + escapeHtml(caso.pregunta) + "</div>" +
         '<p class="fragment">' + escapeHtml(caso.fragmento) + "</p>" +
         '<p class="muted" style="margin-top:10px">' + escapeHtml(typeDef.decisionLabel) + " oficial: <b>" +
@@ -690,9 +751,19 @@ const App = {
         "</select>" +
         '<button class="btn cyan" id="add-activity">+ Agregar actividad</button></div>';
 
-      const editForm =
+      // Una vez que la actividad ya tiene contenido, el formulario estorba entre
+      // rondas: queda plegado salvo que falte cargar el ítem o lo abra a mano.
+      const editorOpen = this.showEditor === null ? !caso.fragmento : this.showEditor;
+      const editorHeader =
+        '<div class="row" style="justify-content:space-between;align-items:center;flex-wrap:nowrap;gap:8px">' +
         '<div class="kicker">Cargar / editar ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + " · " + escapeHtml(act.titulo) + "</div>" +
-        '<label>Título</label><input id="f-titulo" value="' + escapeHtml(caso.titulo || "") + '" />' +
+        '<button class="btn ghost small" id="toggle-editor">' + (editorOpen ? "Ocultar" : "Mostrar") + "</button></div>";
+
+      const editForm = editorHeader + (!editorOpen
+        ? '<p class="muted" style="margin-top:10px">' + act.cases.length + " " +
+          escapeHtml(act.cases.length === 1 ? typeDef.itemNoun.toLowerCase() : typeDef.itemNoun.toLowerCase() + "s") +
+          " cargados · vas por el " + (st.caseIndex + 1) + ". Tocá <b>Mostrar</b> para editarlos o agregar más.</p>"
+        : '<label style="margin-top:10px">Título</label><input id="f-titulo" value="' + escapeHtml(caso.titulo || "") + '" />' +
         '<label style="margin-top:8px">' + escapeHtml(typeDef.promptLabel) + '</label><textarea id="f-preg" style="min-height:70px">' + escapeHtml(caso.pregunta || "") + "</textarea>" +
         '<label style="margin-top:8px">' + escapeHtml(typeDef.contentLabel) + '</label><textarea id="f-frag">' + escapeHtml(caso.fragmento || "") + "</textarea>" +
         '<label style="margin-top:8px">' + escapeHtml(typeDef.decisionLabel) + ' oficial</label><select id="f-fallo">' +
@@ -703,7 +774,7 @@ const App = {
         '<div class="row" style="margin-top:12px">' +
         '<button class="btn cyan" id="save-case">Guardar</button>' +
         '<button class="btn ghost" id="add-case">Agregar ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + " vacío</button></div>" +
-        '<p class="muted" style="margin-top:10px">' + escapeHtml(typeDef.itemNoun) + " " + (st.caseIndex + 1) + " de " + act.cases.length + "</p>";
+        '<p class="muted" style="margin-top:10px">' + escapeHtml(typeDef.itemNoun) + " " + (st.caseIndex + 1) + " de " + act.cases.length + "</p>");
 
       body =
         '<div class="grid-2"><div class="paper">' + left + "</div>" +
@@ -783,7 +854,17 @@ const App = {
       const curAct = currentActivity(this.state);
       curAct.cases.push(emptyCaseFor(curAct.kind));
       this.state.caseIndex = curAct.cases.length - 1;
+      this.showEditor = true;
       this.setState(this.state);
+    };
+    const toggleEditor = document.getElementById("toggle-editor");
+    if (toggleEditor) toggleEditor.onclick = () => {
+      const caseNow = currentCase(this.state);
+      const openNow = this.showEditor === null ? !caseNow.fragmento : this.showEditor;
+      this.showEditor = !openNow;
+      // Al plegarlo guardamos lo escrito para no perder cambios sin guardar.
+      if (openNow && document.getElementById("f-titulo")) bindSave();
+      else this.render();
     };
     const actSelect = document.getElementById("act-select");
     if (actSelect) actSelect.onchange = () => {
@@ -812,9 +893,24 @@ const App = {
     const start = document.getElementById("start");
     if (start) start.onclick = () => {
       if (document.getElementById("f-titulo")) bindSave();
+      this.showEditor = null;
       this.performAction("start");
       this.ensureTimer();
     };
+    const nextRound = document.getElementById("next-round");
+    if (nextRound) nextRound.onclick = () => {
+      this.showEditor = null;
+      this.performAction("nextRound");
+      this.ensureTimer();
+    };
+    const repeatRound = document.getElementById("repeat-round");
+    if (repeatRound) repeatRound.onclick = () => {
+      this.showEditor = null;
+      this.performAction("repeatRound");
+      this.ensureTimer();
+    };
+    const toLobby = document.getElementById("to-lobby");
+    if (toLobby) toLobby.onclick = () => this.performAction("toLobby");
     const nextc = document.getElementById("nextc");
     if (nextc) nextc.onclick = () => {
       if (document.getElementById("f-titulo")) bindSave();
