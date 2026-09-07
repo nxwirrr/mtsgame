@@ -782,7 +782,7 @@ function panelPuntaje(editable) {
         ${[2,1,0].map((n) => `<p class="muted"><b style="color:var(--ink)">+${n}</b> · ${esc(crit[n])}</p>`).join("")}
       </div>
     </div>
-    <p class="muted" style="font-size:12px">Criterio provisorio — se edita desde la app en la Etapa 7.</p>
+    <p class="muted" style="font-size:12px">Criterio de ejemplo. Cada tipo de actividad usa el suyo.</p>
   </div>
   ${P.equipos.map((e) => {
     const r = respuestaDe(e.id) || {};
@@ -855,6 +855,7 @@ function vistaHome() {
         <div class="divider"></div>
         <button class="btn ghost" data-a="ir-crear">Crear una partida</button>
         <p class="muted" style="text-align:center">Para quien dicta la clase</p>
+        ${MODO_NUBE ? "" : `<button class="btn link" data-a="demo-rapida">Ver una demostración con datos de ejemplo</button>`}
       </div>
     </div>
   </div>`;
@@ -1174,7 +1175,7 @@ function renderDemobar() {
   }
   const roles = [["docente", "Docente"], ["catedra", "Cátedra"], ["estudiante", "Estudiante"]];
   $("#demobar").innerHTML = !P || U.pantalla !== "partida"
-    ? `<span class="lbl" style="max-width:none">Etapa 1 · esqueleto sin base de datos</span>`
+    ? `<span class="lbl" style="max-width:none">Modo demostración · una sola pantalla</span>`
     : `<span class="lbl">Ver como</span>
        <span class="segs">${roles.map(([r, t]) =>
          `<button data-a="rol" data-r="${r}" aria-pressed="${U.rol === r}">${t}</button>`).join("")}</span>
@@ -1191,6 +1192,10 @@ document.addEventListener("click", (ev) => {
   // --- inicio ---
   if (a === "toggle-staff") { U.modoStaff = !U.modoStaff; U.error = ""; return render(); }
   if (a === "ir-crear") { U.pantalla = "crear"; U.error = ""; return render(); }
+  if (a === "demo-rapida") {           // partida armada, para mostrar la idea sin configurar
+    cfg = { tipo: "estado", segundos: 90, elegidos: ["f1", "f2"] };
+    return crearPartida();
+  }
   if (a === "home") { U.pantalla = "home"; U.rol = null; U.error = ""; U.modoStaff = false; return render(); }
   if (a === "entrar") return entrar();
 
