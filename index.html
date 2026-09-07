@@ -652,6 +652,12 @@ function vistaHome() {
         <p class="lead" style="margin-top:8px">Equipos que leen, deciden y justifican. En vivo, desde el celular.</p>
       </div>
 
+      <div class="aviso">
+        <span><b>Etapa 1 · todavía sin base de datos.</b> La partida vive solo dentro de
+        esta pestaña. Desde otro celular u otra pestaña el código no la va a encontrar:
+        eso llega en la Etapa 2. Para ver los tres roles usá la barra negra de abajo.</span>
+      </div>
+
       <div class="card stack">
         <label class="field">
           <span class="label">Código de sala</span>
@@ -965,7 +971,10 @@ document.addEventListener("click", (ev) => {
   if (a === "home") { U.pantalla = "home"; U.rol = null; U.error = ""; U.modoStaff = false; return render(); }
   if (a === "entrar") {
     const cod = (U.codigoDraft || "").trim().toUpperCase();
-    if (!P) { U.error = "Todavía no hay ninguna partida. En esta etapa la sala vive solo en esta pestaña: creá una desde “Crear una partida”."; return render(); }
+    if (!P) {
+      U.error = "En esta pestaña no hay ninguna partida abierta. Si la creaste en otro celular o en otra pestaña, todavía no se puede entrar: falta conectar la base de datos compartida (Etapa 2). Por ahora, para ver los otros roles de una partida ya creada, usá la barra negra de abajo.";
+      return render();
+    }
     if (cod !== P.codigo) { U.error = "No encontramos esa sala. Revisá el código."; return render(); }
     if (U.modoStaff) {
       if (U.pinDraft.trim() !== P.pin) { U.error = "PIN incorrecto."; return render(); }
