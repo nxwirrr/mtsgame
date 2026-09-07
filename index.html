@@ -5,6 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#f5f2ea" />
 <title>Dictamen · juego de cátedra</title>
+<!-- Firebase. Se carga aparte y solo con las piezas que usamos: nada de
+     inicio de sesión con Google, que arrastra un archivo de apis.google.com
+     capaz de colgar la app en redes con filtros. Si esto no carga, la app
+     sigue andando en modo demo. -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+  import { initializeAuth, browserLocalPersistence, signInAnonymously, connectAuthEmulator }
+    from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+  import { getFirestore, connectFirestoreEmulator, doc, collection, query, where,
+           getDoc, getDocs, setDoc, updateDoc, onSnapshot }
+    from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+  window.FB = { initializeApp, initializeAuth, browserLocalPersistence, signInAnonymously,
+                connectAuthEmulator, getFirestore, connectFirestoreEmulator, doc, collection,
+                query, where, getDoc, getDocs, setDoc, updateDoc, onSnapshot };
+  window.dispatchEvent(new Event("firebase-listo"));
+</script>
 <style>
 /* ============================================================
    DISEÑO — tokens
@@ -392,6 +408,127 @@ let BIBLIOTECA = [
 
 const NOMBRES_DEMO = ["Ana","Belén","Cami","Dana","Euge","Flor","Guada","Ine","Juli","Ken","Lu","Mai","Nico","Orne","Pau","Rocío"];
 
+/* ------------------------------------------------------------ LA NUBE --- */
+
+/* Acá van las 6 líneas que entrega Firebase al crear el proyecto.
+   Mientras `projectId` esté vacío, la app funciona en MODO DEMO: todo pasa
+   dentro de esta pestaña y aparece la barra negra para ver los tres roles.
+   Apenas se completen, la misma app pasa a MODO NUBE y se sincroniza entre
+   celulares sin cambiar ninguna pantalla. */
+const FIREBASE_CONFIG = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+
+// Enganche de desarrollo: con ?emulador=1 se conecta al Firestore de prueba
+// que corre en la propia computadora. No afecta el uso normal.
+const EMULADOR = new URLSearchParams(location.search).has("emulador");
+let MODO_NUBE = EMULADOR || !!FIREBASE_CONFIG.projectId;
+
+let db = null, auth = null, miUid = null, nubeLista = null;
+let J = [];              // jugadores conectados a la sala
+let cortar = [];         // cómo dejar de escuchar la sala anterior
+
+const EQUIPOS_BASE = [1, 2, 3, 4].map((n) => ({ id: "e" + n, nombre: "Equipo " + n }));
+
+// La librería llega por su cuenta; si tarda demasiado seguimos sin ella.
+function esperarLibreria(ms = 10000) {
+  if (window.FB) return Promise.resolve(true);
+  return new Promise((listo) => {
+    const fin = setTimeout(() => listo(false), ms);
+    window.addEventListener("firebase-listo", () => { clearTimeout(fin); listo(true); }, { once: true });
+  });
+}
+
+async function nubeIniciar() {
+  if (!MODO_NUBE) return false;
+  if (!(await esperarLibreria())) throw new Error("La librería de Firebase no cargó");
+  const FB = window.FB;
+  const app = FB.initializeApp(EMULADOR ? { projectId: "demo-dictamen", apiKey: "demo" } : FIREBASE_CONFIG);
+  db = FB.getFirestore(app);
+  // Sin resolvedor de ventanas emergentes: solo necesitamos identidad anónima.
+  auth = FB.initializeAuth(app, { persistence: FB.browserLocalPersistence });
+  if (EMULADOR) {
+    FB.connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    FB.connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  }
+  const cred = await FB.signInAnonymously(auth);
+  miUid = cred.user.uid;
+  return true;
+}
+
+const refSala = (cod) => window.FB.doc(db, "salas", cod);
+const refJugadores = (cod) => window.FB.collection(db, "salas", cod, "jugadores");
+const refJugador = (cod, uid) => window.FB.doc(db, "salas", cod, "jugadores", uid);
+
+function dejarDeEscuchar() { cortar.forEach((f) => f()); cortar = []; }
+
+// Escucha la sala: cada cambio que hace cualquiera redibuja esta pantalla.
+function escucharSala(codigo) {
+  dejarDeEscuchar();
+  cortar.push(window.FB.onSnapshot(refSala(codigo), (d) => {
+    if (!d.exists()) { P = null; U.pantalla = "home"; U.error = "La sala se cerró."; return render(); }
+    P = d.data();
+    recomponerEquipos();
+    latido();
+    render();
+  }));
+  cortar.push(window.FB.onSnapshot(refJugadores(codigo), (snap) => {
+    J = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+    recomponerEquipos();
+    render();
+  }));
+}
+
+// Los equipos no se guardan: se deducen de quién está conectado.
+function recomponerEquipos() {
+  if (!P || !MODO_NUBE) return;
+  P.equipos = EQUIPOS_BASE.map((e) => ({
+    ...e,
+    integrantes: J.filter((j) => j.rol === "estudiante" && j.equipoId === e.id).map((j) => j.nombre || "anónima")
+  }));
+}
+
+// Sorteo: al equipo con menos gente. Si ya entré antes, vuelvo al mío.
+async function sumarmeALaSala(codigo, rol, nombre) {
+  const FB = window.FB;
+  const ref = refJugador(codigo, miUid);
+  const mio = await FB.getDoc(ref);
+  if (mio.exists() && mio.data().equipoId) {
+    await FB.updateDoc(ref, { rol, nombre: nombre || mio.data().nombre || "", visto: Date.now() });
+    return mio.data().equipoId;
+  }
+  let equipoId = null;
+  if (rol === "estudiante") {
+    const snap = await FB.getDocs(FB.query(refJugadores(codigo), FB.where("rol", "==", "estudiante")));
+    const cuenta = {};
+    EQUIPOS_BASE.forEach((e) => (cuenta[e.id] = 0));
+    snap.forEach((d) => { const e = d.data().equipoId; if (e in cuenta) cuenta[e]++; });
+    equipoId = EQUIPOS_BASE.map((e) => e.id).sort((a, b) => cuenta[a] - cuenta[b])[0];
+  }
+  await FB.setDoc(ref, { rol, nombre: nombre || "", equipoId, visto: Date.now() });
+  return equipoId;
+}
+
+/* Un único punto de escritura. En modo demo toca el objeto local; en modo
+   nube manda el cambio a Firestore y la respuesta vuelve por la escucha.
+   Las claves llevan puntos ("respuestas.r0.e2.opcion") para que dos personas
+   puedan escribir cosas distintas del mismo documento sin pisarse. */
+function set(cambios) {
+  if (MODO_NUBE && db && P) return window.FB.updateDoc(refSala(P.codigo), cambios);
+  Object.entries(cambios).forEach(([ruta, valor]) => {
+    const partes = ruta.split(".");
+    let o = P;
+    for (let i = 0; i < partes.length - 1; i++) o = (o[partes[i]] ||= {});
+    o[partes[partes.length - 1]] = valor;
+  });
+  render();
+}
+
 /* --------------------------------------------------------------- ESTADO --- */
 
 // P = la partida (el futuro "pizarrón compartido"). null = no hay partida.
@@ -406,6 +543,9 @@ let U = {
   pinDraft: "",
   modoStaff: false,
   error: "",
+  nombreDraft: "",
+  borrador: { opcion: null, justificacion: "" },
+  borradorDe: null,   // a qué ronda pertenece el borrador
   tipoNuevo: null,    // formulario de fragmento nuevo abierto
   nuevo: { titulo: "", pregunta: "", texto: "" }
 };
@@ -436,38 +576,53 @@ function limpiarTimers() {
 
 /* --------------------------------------------------- LÓGICA DE LA PARTIDA --- */
 
-function crearPartida() {
-  const equipos = [1, 2, 3, 4].map((n) => ({ id: "e" + n, nombre: "Equipo " + n, integrantes: [] }));
-  // Sorteo: en la Etapa 2 pasa de verdad, a medida que la gente entra.
-  const gente = NOMBRES_DEMO.slice(0, 11);
-  gente.forEach((nom, i) => equipos[i % 4].integrantes.push(nom));
-
-  P = {
+async function crearPartida() {
+  if (nubeLista) await nubeLista;
+  const rondas = cfg.elegidos.map((id) => {
+    const f = BIBLIOTECA.find((x) => x.id === id);
+    return { titulo: f.titulo, pregunta: f.pregunta, texto: f.texto };
+  });
+  const partida = {
     codigo: codigoSala(),
     pin: String(1000 + azar(9000)),
     tipo: cfg.tipo,
     segundos: cfg.segundos,
-    rondas: cfg.elegidos.slice(),
+    rondas,
     rondaIndex: 0,
     fase: "lobby",              // lobby | ronda | puntuando | revelado | fin
     finRonda: null,
-    equipos,
-    respuestas: {},             // respuestas[rondaIndex][equipoId]
-    puntajes: {}                // puntajes[rondaIndex][equipoId]
+    respuestas: {},             // respuestas["r0"][equipoId]
+    puntajes: {}                // puntajes["r0"][equipoId]
   };
+
+  if (MODO_NUBE) {
+    await window.FB.setDoc(refSala(partida.codigo), partida);
+    await sumarmeALaSala(partida.codigo, "docente", "");
+    U.rol = "docente";
+    U.miEquipo = null;
+    U.pantalla = "partida";
+    escucharSala(partida.codigo);
+    return render();
+  }
+
+  // Modo demo: equipos inventados para poder recorrer las pantallas.
+  partida.equipos = EQUIPOS_BASE.map((e) => ({ ...e, integrantes: [] }));
+  NOMBRES_DEMO.slice(0, 11).forEach((nom, i) => partida.equipos[i % 4].integrantes.push(nom));
+  P = partida;
   U.rol = "docente";
   U.miEquipo = "e2";            // en la demo, "yo estudiante" soy del Equipo 2
   U.pantalla = "partida";
   render();
 }
 
-const fragmentoActual = () => BIBLIOTECA.find((f) => f.id === P.rondas[P.rondaIndex]) || null;
-const respuestasRonda = () => (P.respuestas[P.rondaIndex] ||= {});
-const puntajesRonda = () => (P.puntajes[P.rondaIndex] ||= {});
+const claveRonda = () => "r" + P.rondaIndex;
+const fragmentoActual = () => P.rondas[P.rondaIndex] || null;
+const respuestasRonda = () => (P.respuestas || {})[claveRonda()] || {};
+const puntajesRonda = () => (P.puntajes || {})[claveRonda()] || {};
 const respuestaDe = (eq) => respuestasRonda()[eq] || null;
 
 function totalDe(equipoId) {
-  return Object.values(P.puntajes).reduce((acc, r) => acc + (r[equipoId] ?? 0), 0);
+  return Object.values(P.puntajes || {}).reduce((acc, r) => acc + (r[equipoId] ?? 0), 0);
 }
 function ranking() {
   return P.equipos
@@ -484,53 +639,67 @@ function puntuados() {
 
 function iniciarRonda() {
   limpiarTimers();
-  P.fase = "ronda";
-  P.finRonda = Date.now() + P.segundos * 1000;
-  P.respuestas[P.rondaIndex] = {};
-  P.puntajes[P.rondaIndex] = {};
+  const k = claveRonda();
+  set({ fase: "ronda", finRonda: Date.now() + P.segundos * 1000,
+        ["respuestas." + k]: {}, ["puntajes." + k]: {} });
+  arrancarLatido();
+  if (!MODO_NUBE) demoOtrosEquiposResponden();
+}
 
+// Cada dispositivo lleva su propio reloj de pantalla; el fin de la ronda es
+// una hora fija guardada en la sala, así todos ven el mismo número.
+function arrancarLatido() {
+  clearInterval(tick);
   tick = setInterval(latido, 250);
-  // Los otros equipos "responden" solos, para poder ver cómo se llena la
-  // pantalla del docente. En la Etapa 2 esto lo hace gente de verdad.
-  P.equipos.filter((e) => e.id !== U.miEquipo).forEach((e) => {
-    const cuando = 4000 + azar(Math.max(3000, P.segundos * 1000 - 12000));
-    demoTimers.push(setTimeout(() => {
-      if (P.fase !== "ronda") return;
-      respuestasRonda()[e.id] = {
-        opcion: OPCIONES[azar(3)].id,
-        justificacion: "El párrafo enumera autores pero no articula la teoría con el problema de investigación.",
-        enviada: true
-      };
-      render();
-    }, cuando));
-  });
-  render();
 }
 
 function latido() {
-  if (!P || P.fase !== "ronda") return;
+  if (!P || P.fase !== "ronda") { clearInterval(tick); tick = null; return; }
+  if (!tick) arrancarLatido();
   const restante = (P.finRonda - Date.now()) / 1000;
   pintarTimer(restante);
-  if (restante <= 0) cerrarRonda();
+  if (restante > 0) return;
+
+  clearInterval(tick); tick = null;
+  // Al vencer el tiempo cada equipo manda lo que tenga escrito, y quien
+  // dicta la clase es el único que cierra la ronda (para no escribirlo 4 veces).
+  if (U.rol === "estudiante" && U.miEquipo && !respuestaDe(U.miEquipo)?.enviada) {
+    set({ ["respuestas." + claveRonda() + "." + U.miEquipo]: {
+      opcion: U.borrador.opcion, justificacion: U.borrador.justificacion, enviada: true, vencida: true } });
+  }
+  if (U.rol === "docente" || !MODO_NUBE) cerrarRonda();
 }
 
 function cerrarRonda() {
   limpiarTimers();
-  // Al vencer el tiempo se envía lo que haya, aunque esté incompleto.
+  const k = claveRonda();
+  const cambios = { fase: "puntuando", finRonda: null };
   P.equipos.forEach((e) => {
-    const r = respuestasRonda()[e.id];
-    if (!r) respuestasRonda()[e.id] = { opcion: null, justificacion: "", enviada: true, vencida: true };
-    else if (!r.enviada) { r.enviada = true; r.vencida = true; }
+    const r = respuestaDe(e.id);
+    if (!r) cambios["respuestas." + k + "." + e.id] = { opcion: null, justificacion: "", enviada: true, vencida: true };
+    else if (!r.enviada) cambios["respuestas." + k + "." + e.id] = { ...r, enviada: true, vencida: true };
   });
-  P.fase = "puntuando";
-  P.finRonda = null;
-  render();
+  set(cambios);
 }
 
 function siguienteRonda() {
-  if (P.rondaIndex + 1 < P.rondas.length) { P.rondaIndex++; P.fase = "lobby"; }
-  else P.fase = "fin";
-  render();
+  if (P.rondaIndex + 1 < P.rondas.length) set({ rondaIndex: P.rondaIndex + 1, fase: "lobby" });
+  else set({ fase: "fin" });
+}
+
+// Solo en modo demo: los otros equipos contestan solos para poder ver cómo
+// se llena la pantalla de quien dicta la clase.
+function demoOtrosEquiposResponden() {
+  P.equipos.filter((e) => e.id !== U.miEquipo).forEach((e) => {
+    const cuando = 4000 + azar(Math.max(3000, P.segundos * 1000 - 12000));
+    demoTimers.push(setTimeout(() => {
+      if (!P || P.fase !== "ronda") return;
+      set({ ["respuestas." + claveRonda() + "." + e.id]: {
+        opcion: OPCIONES[azar(3)].id,
+        justificacion: "El párrafo enumera autores pero no articula la teoría con el problema de investigación.",
+        enviada: true } });
+    }, cuando));
+  });
 }
 
 /* ------------------------------------------------------------- PEDACITOS --- */
@@ -652,11 +821,11 @@ function vistaHome() {
         <p class="lead" style="margin-top:8px">Equipos que leen, deciden y justifican. En vivo, desde el celular.</p>
       </div>
 
-      <div class="aviso">
-        <span><b>Etapa 1 · todavía sin base de datos.</b> La partida vive solo dentro de
-        esta pestaña. Desde otro celular u otra pestaña el código no la va a encontrar:
-        eso llega en la Etapa 2. Para ver los tres roles usá la barra negra de abajo.</span>
-      </div>
+      ${MODO_NUBE ? "" : `<div class="aviso">
+        <span><b>Modo demo · sin base de datos.</b> La partida vive solo dentro de
+        esta pestaña. Desde otro celular u otra pestaña el código no la va a encontrar.
+        Para ver los tres roles usá la barra negra de abajo.</span>
+      </div>`}
 
       <div class="card stack">
         <label class="field">
@@ -664,6 +833,11 @@ function vistaHome() {
           <input class="code-input" id="codigo" type="text" inputmode="latin" autocapitalize="characters"
                  maxlength="4" placeholder="ABCD" value="${esc(U.codigoDraft)}" />
         </label>
+        ${MODO_NUBE && !U.modoStaff ? `<label class="field">
+          <span class="label">Tu nombre</span>
+          <input type="text" id="nombre" maxlength="18" placeholder="Cómo te ven tus compañeras"
+                 value="${esc(U.nombreDraft)}" />
+        </label>` : ""}
         ${U.modoStaff ? `<label class="field">
           <span class="label">PIN de cátedra</span>
           <input class="pin-input" id="pin" type="tel" inputmode="numeric" maxlength="4" placeholder="0000" value="${esc(U.pinDraft)}" />
@@ -871,7 +1045,7 @@ function vistaEstudiante() {
       <div class="card stack" style="text-align:center">
         <p class="kicker">Te tocó</p>
         <h1>${esc(eq.nombre)}</h1>
-        <p class="lead">${esc(eq.integrantes.join(" · "))}</p>
+        <p class="lead">${eq.integrantes.length ? esc(eq.integrantes.join(" · ")) : "Esperando a tus compañeras…"}</p>
       </div>
       ${pasos()}
       ${esperando("Esperando que arranque", "Cuando empiece la ronda vas a ver el fragmento acá.")}`,
@@ -884,7 +1058,7 @@ function vistaEstudiante() {
           <div class="row"><span class="muted">Su fallo</span><span class="spacer"></span>${tagOpcion(r.opcion)}</div>
           <p class="lead">${esc(r.justificacion)}</p>
         </div>`;
-      const elegida = r?.opcion || null;
+      const elegida = U.borrador.opcion;
       return `
         <div class="card stack">${timerHTML()}
           <p class="muted">Al vencer el tiempo se envía sola, aunque esté incompleta.</p></div>
@@ -898,7 +1072,7 @@ function vistaEstudiante() {
         </div>
         <label class="field card">
           <span class="label">¿Por qué?</span>
-          <textarea id="justi" placeholder="Escriban la justificación del equipo...">${esc(r?.justificacion || "")}</textarea>
+          <textarea id="justi" placeholder="Escriban la justificación del equipo...">${esc(U.borrador.justificacion)}</textarea>
         </label>
         <button class="btn equipo" data-a="enviar" ${elegida ? "" : "disabled"}>Enviar respuesta</button>`;
     },
@@ -929,9 +1103,53 @@ function vistaEstudiante() {
   return `<div class="screen">${topbar()}${cuerpo}</div>`;
 }
 
+/* --------------------------------------------------------------- ENTRAR --- */
+
+async function entrar() {
+  const cod = (U.codigoDraft || "").trim().toUpperCase();
+  if (nubeLista) { U.error = ""; await nubeLista; }
+  if (cod.length < 4) { U.error = "Escribí el código de 4 letras."; return render(); }
+
+  if (!MODO_NUBE) {
+    if (!P) {
+      U.error = "En esta pestaña no hay ninguna partida abierta. Todavía no hay base de datos compartida, así que un código creado en otro celular no se puede encontrar. Para ver los otros roles de una partida creada acá, usá la barra negra de abajo.";
+      return render();
+    }
+    if (cod !== P.codigo) { U.error = "No encontramos esa sala. Revisá el código."; return render(); }
+    if (U.modoStaff) {
+      if (U.pinDraft.trim() !== P.pin) { U.error = "PIN incorrecto."; return render(); }
+      U.rol = "catedra";
+    } else {
+      U.rol = "estudiante";
+      U.miEquipo = U.miEquipo || "e2";
+    }
+    U.error = ""; U.pantalla = "partida"; return render();
+  }
+
+  U.error = "Buscando la sala…"; render();
+  try {
+    const sala = await window.FB.getDoc(refSala(cod));
+    if (!sala.exists()) { U.error = "No encontramos esa sala. Revisá el código."; return render(); }
+    if (U.modoStaff && U.pinDraft.trim() !== sala.data().pin) { U.error = "PIN incorrecto."; return render(); }
+
+    const rol = U.modoStaff ? "catedra" : "estudiante";
+    U.miEquipo = await sumarmeALaSala(cod, rol, U.nombreDraft.trim());
+    U.rol = rol; U.error = ""; U.pantalla = "partida";
+    escucharSala(cod);
+    render();
+  } catch (e) {
+    U.error = "No pudimos conectarnos. Revisá internet y probá de nuevo.";
+    render();
+  }
+}
+
 /* ---------------------------------------------------------------- RENDER --- */
 
 function render() {
+  if (P && U.borradorDe !== (P.rondaIndex ?? null)) {
+    U.borradorDe = P.rondaIndex ?? null;
+    U.borrador = { opcion: null, justificacion: "" };
+  }
   const activo = document.activeElement;
   const foco = activo && activo.id ? { id: activo.id, pos: activo.selectionStart } : null;
 
@@ -949,6 +1167,11 @@ function render() {
 }
 
 function renderDemobar() {
+  if (MODO_NUBE) {                       // con base de datos compartida no hace falta
+    document.documentElement.style.setProperty("--bar", "0px");
+    $("#demobar").style.display = "none";
+    return;
+  }
   const roles = [["docente", "Docente"], ["catedra", "Cátedra"], ["estudiante", "Estudiante"]];
   $("#demobar").innerHTML = !P || U.pantalla !== "partida"
     ? `<span class="lbl" style="max-width:none">Etapa 1 · esqueleto sin base de datos</span>`
@@ -969,22 +1192,7 @@ document.addEventListener("click", (ev) => {
   if (a === "toggle-staff") { U.modoStaff = !U.modoStaff; U.error = ""; return render(); }
   if (a === "ir-crear") { U.pantalla = "crear"; U.error = ""; return render(); }
   if (a === "home") { U.pantalla = "home"; U.rol = null; U.error = ""; U.modoStaff = false; return render(); }
-  if (a === "entrar") {
-    const cod = (U.codigoDraft || "").trim().toUpperCase();
-    if (!P) {
-      U.error = "En esta pestaña no hay ninguna partida abierta. Si la creaste en otro celular o en otra pestaña, todavía no se puede entrar: falta conectar la base de datos compartida (Etapa 2). Por ahora, para ver los otros roles de una partida ya creada, usá la barra negra de abajo.";
-      return render();
-    }
-    if (cod !== P.codigo) { U.error = "No encontramos esa sala. Revisá el código."; return render(); }
-    if (U.modoStaff) {
-      if (U.pinDraft.trim() !== P.pin) { U.error = "PIN incorrecto."; return render(); }
-      U.rol = "catedra";
-    } else {
-      U.rol = "estudiante";
-      U.miEquipo = U.miEquipo || "e2";
-    }
-    U.error = ""; U.pantalla = "partida"; return render();
-  }
+  if (a === "entrar") return entrar();
 
   // --- armado de la partida ---
   if (a === "tipo") { cfg.tipo = b.dataset.t; cfg.elegidos = []; return render(); }
@@ -1008,22 +1216,17 @@ document.addEventListener("click", (ev) => {
   // --- control de la partida ---
   if (a === "iniciar") return iniciarRonda();
   if (a === "cortar") return cerrarRonda();
-  if (a === "revelar") { P.fase = "revelado"; return render(); }
+  if (a === "revelar") return set({ fase: "revelado" });
   if (a === "siguiente") return siguienteRonda();
-  if (a === "puntuar") { puntajesRonda()[b.dataset.eq] = Number(b.dataset.n); return render(); }
+  if (a === "puntuar") return set({ ["puntajes." + claveRonda() + "." + b.dataset.eq]: Number(b.dataset.n) });
 
   // --- estudiante ---
-  if (a === "opcion") {
-    const r = (respuestasRonda()[U.miEquipo] ||= { opcion: null, justificacion: "", enviada: false });
-    if (r.enviada) return;
-    r.opcion = b.dataset.o;
-    return render();
-  }
+  // Lo que el equipo elige y escribe queda en el celular hasta que envía.
+  if (a === "opcion") { U.borrador.opcion = b.dataset.o; return render(); }
   if (a === "enviar") {
-    const r = respuestasRonda()[U.miEquipo];
-    if (!r || !r.opcion) return;
-    r.enviada = true;
-    return render();
+    if (!U.borrador.opcion) return;
+    return set({ ["respuestas." + claveRonda() + "." + U.miEquipo]: {
+      opcion: U.borrador.opcion, justificacion: U.borrador.justificacion, enviada: true } });
   }
 
   // --- barra de demo (solo Etapa 1) ---
@@ -1040,13 +1243,19 @@ document.addEventListener("input", (ev) => {
   else if (id === "n-titulo") U.nuevo.titulo = v;
   else if (id === "n-pregunta") U.nuevo.pregunta = v;
   else if (id === "n-texto") U.nuevo.texto = v;
-  else if (id === "justi") {
-    const r = (respuestasRonda()[U.miEquipo] ||= { opcion: null, justificacion: "", enviada: false });
-    if (!r.enviada) r.justificacion = v;
-  }
+  else if (id === "nombre") U.nombreDraft = v;
+  else if (id === "justi") U.borrador.justificacion = v;
 });
 
+// Se dibuja primero y se conecta después: nadie mira una pantalla en blanco
+// mientras el celular negocia con la red.
 render();
+if (MODO_NUBE) {
+  nubeLista = nubeIniciar().catch((e) => {
+    console.error("No se pudo conectar con la base de datos:", e);
+    MODO_NUBE = false;                 // seguimos en modo demo antes que romper
+  }).then(render);
+}
 </script>
 </body>
 </html>
