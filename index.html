@@ -1,1043 +1,1043 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Mi primer dictamen</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <style>
-:root {
-  --bg0: #07021a;
-  --ink: #12081f;
-  --paper: #fff7ff;
-  --paper-2: #ffe3f2;
-  --pink: #ff2e8a;
-  --cyan: #18e7ff;
-  --yellow: #ffe14d;
-  --lime: #b6ff3b;
-  --muted: #6b4d7a;
-  --shadow: 0 18px 50px rgba(90, 0, 80, 0.28);
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%; }
-body {
-  font-family: "DM Sans", system-ui, sans-serif;
-  background:
-    radial-gradient(900px 500px at 0% 0%, #ff2e8a55, transparent 55%),
-    radial-gradient(800px 500px at 100% 0%, #18e7ff44, transparent 50%),
-    radial-gradient(700px 400px at 50% 100%, #7a3dff55, transparent 45%),
-    var(--bg0);
-  color: #fff;
-}
-#app { min-height: 100dvh; }
-h1, h2, h3, .serif { font-family: Fraunces, Georgia, serif; }
-button, input, textarea, select { font: inherit; }
-button { cursor: pointer; }
-.shell { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding: 22px 0 40px; }
-.topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
-.brand { letter-spacing: 0.08em; text-transform: uppercase; font-size: 12px; color: #ffd6ee; }
-.brand b { font-family: Fraunces, serif; letter-spacing: 0; text-transform: none; font-size: 22px; color: #fff; display: block; }
-.pill { border: 1px solid #ff2e8a88; background: #2a0848; color: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; }
-.hero-card, .paper { background: var(--paper); color: var(--ink); border-radius: 24px; box-shadow: var(--shadow); }
-.hero-card { padding: 28px 26px 24px; }
-.paper { padding: 18px; border: 2px solid #fff; }
-.kicker { color: var(--pink); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
-h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.05; margin: 8px 0 10px; color: var(--ink); }
-.lead { color: #4a2a58; line-height: 1.45; margin: 0 0 18px; }
-.grid-2 { display: grid; gap: 14px; grid-template-columns: 1fr; }
-@media (min-width: 800px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
-.grid-4 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
-@media (min-width: 800px) { .grid-4 { grid-template-columns: repeat(4, 1fr); } }
-.choice { display: block; width: 100%; text-align: left; background: linear-gradient(135deg, #ff2e8a, #7a3dff); color: #fff; border: 0; border-radius: 18px; padding: 16px; }
-.choice.alt { background: linear-gradient(135deg, #18e7ff, #7a3dff); color: #12081f; }
-.choice small { display: block; opacity: 0.9; margin-top: 4px; }
-label { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
-input, textarea, select { width: 100%; border: 2px solid #f5b4d8; background: #fff; color: var(--ink); border-radius: 12px; padding: 11px 12px; outline: none; }
-input:focus, textarea:focus, select:focus { border-color: var(--pink); }
-textarea { min-height: 110px; resize: vertical; }
-.row { display: flex; gap: 8px; flex-wrap: wrap; }
-.btn { border: 0; border-radius: 999px; padding: 11px 16px; background: var(--ink); color: #fff; font-weight: 700; }
-.btn.gold { background: var(--pink); }
-.btn.cyan { background: var(--cyan); color: #071018; }
-.btn.ghost { background: transparent; color: var(--ink); border: 2px solid #f5b4d8; }
-.btn.green { background: #12c971; }
-.btn.red { background: #ff3b5c; }
-.btn.amber { background: var(--yellow); color: #171000; }
-.btn.small { padding: 7px 11px; font-size: 13px; }
-.scoreboard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-@media (min-width: 700px) { .scoreboard { grid-template-columns: repeat(4, 1fr); } }
-.team { background: #2a0848; border: 2px solid #ff2e8a66; border-radius: 16px; padding: 12px; }
-.team .name { font-size: 13px; color: #ffd6ee; }
-.team .pts { font-family: Fraunces, serif; font-size: 28px; color: var(--yellow); }
-.stamp-row { display: grid; grid-template-columns: 1fr; gap: 8px; }
-@media (min-width: 620px) { .stamp-row { grid-template-columns: 1fr 1fr 1fr; } }
-.stamp { border: 2px dashed #f5b4d8; background: #fff; color: var(--ink); border-radius: 16px; padding: 12px 10px; font-weight: 700; }
-.stamp.on-aprueba { border-style: solid; border-color: #12c971; background: #d9ffe8; color: #0a7a42; }
-.stamp.on-observaciones { border-style: solid; border-color: #e3b100; background: #fff4b8; color: #7a5a00; }
-.stamp.on-desaprueba { border-style: solid; border-color: #ff3b5c; background: #ffd4dc; color: #b01030; }
-.timer { font-family: Fraunces, serif; font-size: clamp(42px, 9vw, 72px); line-height: 1; color: var(--pink); }
-.qbox { font-size: 14px; color: #4a2a58; background: var(--paper-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
-.fragment { font-size: 16px; line-height: 1.5; margin: 0; }
-.judge-grid { display: grid; gap: 12px; }
-@media (min-width: 860px) { .judge-grid { grid-template-columns: 1fr 1fr; } }
-.ai { background: #efe4ff; border-radius: 12px; padding: 10px 12px; font-size: 13px; color: #3b2460; margin: 8px 0; }
-.tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
-.tag.ok { background: #d9ffe8; color: #0a7a42; }
-.tag.no { background: #ffd4dc; color: #b01030; }
-.tag.wait { background: #fff4b8; color: #7a5a00; }
-.muted { color: var(--muted); font-size: 13px; }
-.footer-note { margin-top: 14px; color: #ffd6ee; font-size: 12px; line-height: 1.4; }
-.wait-screen { text-align: center; padding: 40px 16px; }
-.sync-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; background: var(--lime); }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f5f2ea" />
+<title>Dictamen · juego de cátedra</title>
+<style>
+/* ============================================================
+   DISEÑO — tokens
+   Paleta clara, alto contraste, pensada para leer párrafos
+   largos en un celular y para proyectar en un aula.
+   ============================================================ */
+:root{
+  --bg:#f5f2ea;
+  --surface:#ffffff;
+  --surface-2:#faf8f3;
+  --ink:#17151f;
+  --ink-2:#3d3850;
+  --muted:#726c85;
+  --line:#e6e0d4;
+  --line-2:#d5cdbc;
 
-  </style>
+  --docente:#4b39d8;
+  --docente-soft:#ece9ff;
+  --catedra:#b45309;
+  --catedra-soft:#fdf1e0;
+  --equipo:#0f766e;
+  --equipo-soft:#e2f4f1;
+
+  --si:#15803d;
+  --si-soft:#e7f6ec;
+  --obs:#b45309;
+  --obs-soft:#fdf1e0;
+  --no:#be123c;
+  --no-soft:#fdeaef;
+
+  --r-lg:20px;
+  --r-md:14px;
+  --r-sm:10px;
+  --shadow:0 1px 2px rgba(23,21,31,.06), 0 8px 24px rgba(23,21,31,.07);
+  --shadow-sm:0 1px 2px rgba(23,21,31,.07);
+  --bar:64px; /* alto de la barra de demo */
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+h1,h2,h3{margin:0;line-height:1.15;letter-spacing:-.02em;font-weight:800}
+h1{font-size:26px}
+h2{font-size:20px}
+h3{font-size:16px;letter-spacing:-.01em}
+p{margin:0}
+
+/* ---------- estructura ---------- */
+#app{min-height:100dvh;display:flex;flex-direction:column}
+.screen{
+  flex:1;
+  width:min(680px,100%);
+  margin:0 auto;
+  padding:14px 16px calc(var(--bar) + 28px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:14px;
+}
+.screen.center{justify-content:center}
+
+/* ---------- barra superior ---------- */
+.topbar{
+  display:flex;align-items:center;gap:10px;justify-content:space-between;
+  padding:2px 0 6px;
+}
+.rolechip{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  padding:6px 11px;border-radius:999px;border:1px solid transparent;
+}
+.rolechip .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.rolechip.docente{color:var(--docente);background:var(--docente-soft);border-color:#d9d3ff}
+.rolechip.catedra{color:var(--catedra);background:var(--catedra-soft);border-color:#f3e0c6}
+.rolechip.estudiante{color:var(--equipo);background:var(--equipo-soft);border-color:#c6e7e1}
+.codechip{
+  font-size:13px;font-weight:700;color:var(--muted);
+  letter-spacing:.14em;font-variant-numeric:tabular-nums;
+}
+.codechip b{color:var(--ink);letter-spacing:.2em}
+
+/* ---------- tarjetas ---------- */
+.card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  padding:18px;
+  box-shadow:var(--shadow-sm);
+}
+.card.flat{box-shadow:none;background:var(--surface-2)}
+.card.pad-sm{padding:14px}
+.kicker{
+  font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:7px;
+}
+.lead{color:var(--ink-2);font-size:15px}
+.muted{color:var(--muted);font-size:13px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.stack-sm{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;gap:10px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.spacer{flex:1}
+.divider{height:1px;background:var(--line);margin:2px 0}
+
+/* ---------- botones ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:52px;padding:14px 18px;border-radius:var(--r-md);
+  font-weight:700;font-size:16px;letter-spacing:-.01em;
+  background:var(--ink);color:#fff;
+  transition:transform .06s ease, opacity .15s ease;
+  width:100%;
+}
+.btn:active{transform:scale(.985)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line-2)}
+.btn.soft{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}
+.btn.docente{background:var(--docente)}
+.btn.catedra{background:var(--catedra)}
+.btn.equipo{background:var(--equipo)}
+.btn.sm{min-height:40px;padding:8px 14px;font-size:14px;width:auto;border-radius:var(--r-sm)}
+.btn.link{background:none;color:var(--muted);min-height:40px;font-weight:600;font-size:14px;text-decoration:underline;text-underline-offset:3px}
+
+/* ---------- formularios ---------- */
+label.field{display:block}
+.label{
+  display:block;font-size:12px;font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);margin:0 0 7px;
+}
+input[type=text],input[type=tel],textarea,select{
+  width:100%;background:#fff;border:1.5px solid var(--line-2);
+  border-radius:var(--r-md);padding:14px;outline:none;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+input:focus,textarea:focus,select:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(23,21,31,.08)}
+textarea{min-height:120px;resize:vertical;line-height:1.5}
+.code-input{
+  text-align:center;font-size:34px;font-weight:800;letter-spacing:.34em;
+  text-transform:uppercase;padding:16px 10px 16px 20px;
+}
+.pin-input{text-align:center;font-size:26px;font-weight:800;letter-spacing:.5em;padding:14px 6px 14px 22px}
+
+/* ---------- fragmento ---------- */
+.pregunta{
+  background:var(--surface-2);border:1px solid var(--line);
+  border-left:4px solid var(--docente);
+  border-radius:var(--r-sm);padding:12px 14px;
+}
+.pregunta .kicker{margin-bottom:4px}
+.fragmento{
+  font-size:17px;line-height:1.62;color:var(--ink);
+  hyphens:auto;
+}
+
+/* ---------- opciones ---------- */
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{
+  display:flex;align-items:flex-start;gap:12px;text-align:left;width:100%;
+  border:1.5px solid var(--line-2);background:#fff;border-radius:var(--r-md);
+  padding:15px 14px;transition:border-color .12s ease, background .12s ease;
+}
+.opt .badge{
+  flex:0 0 auto;width:28px;height:28px;border-radius:8px;
+  display:grid;place-items:center;font-weight:800;font-size:14px;
+  background:var(--surface-2);color:var(--muted);border:1px solid var(--line);
+}
+.opt .txt{font-weight:700;letter-spacing:-.01em}
+.opt[aria-pressed=true]{border-width:2px;padding:14px 13px}
+.opt.si[aria-pressed=true]{border-color:var(--si);background:var(--si-soft)}
+.opt.si[aria-pressed=true] .badge{background:var(--si);color:#fff;border-color:var(--si)}
+.opt.obs[aria-pressed=true]{border-color:var(--obs);background:var(--obs-soft)}
+.opt.obs[aria-pressed=true] .badge{background:var(--obs);color:#fff;border-color:var(--obs)}
+.opt.no[aria-pressed=true]{border-color:var(--no);background:var(--no-soft)}
+.opt.no[aria-pressed=true] .badge{background:var(--no);color:#fff;border-color:var(--no)}
+
+.tag{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:800;letter-spacing:.02em;
+  padding:5px 10px;border-radius:999px;border:1px solid transparent;white-space:nowrap;
+}
+.tag.si{color:var(--si);background:var(--si-soft);border-color:#c7e6d2}
+.tag.obs{color:var(--obs);background:var(--obs-soft);border-color:#f3e0c6}
+.tag.no{color:var(--no);background:var(--no-soft);border-color:#f6ccd7}
+.tag.gris{color:var(--muted);background:var(--surface-2);border-color:var(--line)}
+
+/* ---------- cronómetro ---------- */
+.timer{display:flex;align-items:center;gap:12px}
+.timer .num{
+  font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em;min-width:76px;
+}
+.timer.urgente .num{color:var(--no)}
+.bar{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar > i{display:block;height:100%;background:var(--ink);transition:width .95s linear}
+.timer.urgente .bar > i{background:var(--no)}
+
+/* ---------- listas ---------- */
+.list{display:flex;flex-direction:column;gap:8px}
+.item{
+  display:flex;align-items:center;gap:12px;
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:#fff;padding:12px 14px;
+}
+.item .name{font-weight:700}
+.row.wrap .name{white-space:nowrap}
+.item .sub{font-size:13px;color:var(--muted)}
+.avatar{
+  flex:0 0 auto;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+  font-weight:800;font-size:13px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2);
+}
+.avatar.e1{background:#e8ecff;border-color:#cdd6ff;color:#3346c7}
+.avatar.e2{background:#e2f4f1;border-color:#c1e6df;color:#0f766e}
+.avatar.e3{background:#fdf1e0;border-color:#f2ddbf;color:#b45309}
+.avatar.e4{background:#fdeaef;border-color:#f5ccd8;color:#be123c}
+
+/* ---------- puntajes ---------- */
+.scorebtns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sbtn{
+  border:1.5px solid var(--line-2);background:#fff;border-radius:var(--r-md);
+  min-height:52px;font-weight:800;font-size:17px;
+  display:grid;place-items:center;transition:all .12s ease;
+}
+.sbtn small{display:block;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+.sbtn[aria-pressed=true]{background:var(--catedra);border-color:var(--catedra);color:#fff}
+.sbtn[aria-pressed=true] small{color:#fff;opacity:.85}
+
+.rank{display:flex;flex-direction:column;gap:8px}
+.rank .item .pos{font-weight:800;color:var(--muted);width:22px;text-align:center}
+.rank .item .pts{font-weight:800;font-variant-numeric:tabular-nums;font-size:18px}
+.rank .item.yo{border-color:var(--equipo);background:var(--equipo-soft)}
+
+.big-code{
+  text-align:center;padding:22px 16px;
+  background:var(--ink);color:#fff;border-radius:var(--r-lg);
+}
+.big-code .val{font-size:48px;font-weight:800;letter-spacing:.22em;line-height:1.1}
+.big-code .lbl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;opacity:.65;font-weight:700}
+.big-code .pin{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.18);font-size:13px;opacity:.8}
+.big-code .pin b{font-size:19px;letter-spacing:.18em;opacity:1}
+
+.wait{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  text-align:center;padding:34px 18px;
+}
+.pulse{width:52px;height:52px;border-radius:50%;background:var(--ink);opacity:.12;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(.82);opacity:.1}50%{transform:scale(1);opacity:.22}}
+
+.progress-dots{display:flex;gap:6px;justify-content:center}
+.progress-dots i{width:7px;height:7px;border-radius:50%;background:var(--line-2)}
+.progress-dots i.on{background:var(--ink)}
+.progress-dots i.now{background:var(--docente);transform:scale(1.35)}
+
+.check{display:flex;align-items:flex-start;gap:11px;padding:13px 14px;border:1.5px solid var(--line-2);border-radius:var(--r-md);background:#fff;text-align:left;width:100%}
+.check[aria-pressed=true]{border-color:var(--docente);background:var(--docente-soft)}
+.check .box{flex:0 0 auto;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line-2);background:#fff;display:grid;place-items:center;font-size:13px;color:#fff;font-weight:800;margin-top:1px}
+.check[aria-pressed=true] .box{background:var(--docente);border-color:var(--docente)}
+.check .t{font-weight:700;font-size:15px}
+.check .d{font-size:13px;color:var(--muted);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--surface-2);padding:5px;border-radius:var(--r-md);border:1px solid var(--line)}
+.seg button{padding:10px 6px;border-radius:9px;font-weight:700;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:var(--shadow-sm)}
+
+.aviso{
+  display:flex;gap:10px;align-items:flex-start;
+  background:var(--catedra-soft);border:1px solid #f3e0c6;color:#7c3d06;
+  border-radius:var(--r-md);padding:12px 14px;font-size:13px;line-height:1.45;
+}
+
+/* ---------- barra de demo (solo etapa 1) ---------- */
+.demobar{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  background:rgba(23,21,31,.96);
+  backdrop-filter:saturate(140%) blur(8px);
+  color:#fff;
+  padding:8px 12px calc(8px + env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:8px;
+}
+.demobar .lbl{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.55;padding-right:2px;line-height:1.2;max-width:74px}
+.demobar .segs{display:flex;gap:6px;flex:1}
+.demobar button{
+  flex:1;padding:10px 6px;border-radius:10px;font-size:13px;font-weight:700;
+  background:rgba(255,255,255,.1);color:#fff;
+}
+.demobar button[aria-pressed=true]{background:#fff;color:var(--ink)}
+.demobar button.reset{flex:0 0 auto;background:none;opacity:.55;font-size:12px;text-decoration:underline;padding:10px 4px}
+
+@media (min-width:560px){
+  h1{font-size:30px}
+  .screen{padding-left:20px;padding-right:20px}
+}
+</style>
 </head>
 <body>
-  <div id="app"></div>
-  <script>
-const TEAMS = [
-  { id: "t1", name: "Equipo 1" },
-  { id: "t2", name: "Equipo 2" },
-  { id: "t3", name: "Equipo 3" },
-  { id: "t4", name: "Equipo 4" }
-];
+<div id="app"></div>
+<div class="demobar" id="demobar"></div>
+<script>
+/* ============================================================================
+   ETAPA 1 — Esqueleto navegable, SIN base de datos.
 
-const CASES0 = [
-  {
-    id: "c1",
-    titulo: "Caso 1 · Recorte",
-    pregunta: "¿Cómo influyen las representaciones sociales del rol docente en el malestar de maestras rurales de primaria?",
-    fragmento: "Diversos autores han definido las representaciones sociales. Moscovici (1961) señala que son sistemas de valores, ideas y prácticas. Jodelet (1986) agrega que permiten interpretar el mundo y orientar la conducta. Abric (1994) distingue núcleo central y elementos periféricos. En educación, estas nociones han sido ampliamente utilizadas para estudiar creencias, identidades y prácticas escolares en distintos niveles y contextos.",
-    falloOficial: "observaciones",
-    base: "Los autores son pertinentes, pero el párrafo solo lista definiciones. No hay articulación ni recorte al problema: no dice cómo se usará la teoría para leer el malestar docente en escuelas rurales de primaria.",
-    claves: ["lista", "definiciones", "no recorta", "no articula", "yuxtapon", "rural", "malestar", "no dice cómo"]
-  },
-  {
-    id: "c2",
-    titulo: "Caso 2 · Cierra",
-    pregunta: "¿Cómo influyen las representaciones sociales del rol docente en el malestar de maestras rurales de primaria?",
-    fragmento: "Las representaciones sociales (Moscovici, 1961; Jodelet, 1986) se entienden aquí como sistemas de sentido que organizan la percepción del oficio. No se toma el concepto de modo genérico: se lo recorta al núcleo “buena maestra / escuela posible” en contexto rural (Abric, 1994). Ese recorte permite leer el malestar no como rasgo individual, sino como tensión entre la representación del rol y las condiciones reales de la escuela del interior.",
-    falloOficial: "aprueba",
-    base: "Hay definición situada, diálogo breve entre autores y recorte explícito al problema. El párrafo cierra diciendo para qué se usa la teoría en este proyecto.",
-    claves: ["recorte", "rural", "malestar", "para qué", "rol", "articula", "situad"]
-  }
-];
+   Todo lo que acá se guarda en la variable `P` ("la partida") es, en la
+   Etapa 2, lo que va a vivir en el pizarrón compartido (Firestore). El
+   código está escrito para que ese cambio sea reemplazar cómo se lee y se
+   escribe `P`, sin tocar las pantallas.
 
-const ACTIVITY_TYPES = {
-  dictamen: {
-    label: "Dictamen · estado de la cuestión",
-    itemNoun: "Párrafo",
-    promptLabel: "Pregunta de investigación",
-    contentLabel: "Párrafo / fragmento",
-    decisionLabel: "Fallo",
-    sellos: [
-      { id: "aprueba", label: "Aprueba" },
-      { id: "observaciones", label: "Aprueba con observaciones" },
-      { id: "desaprueba", label: "Desaprueba" }
-    ]
+   Por ahora vive solo en la memoria de esta pestaña: si recargás, se borra.
+   La barra negra de abajo es SOLO de esta etapa: sirve para ver las tres
+   interfaces de la misma partida desde un único celular.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------- DATOS --- */
+
+// Las 3 opciones son siempre las mismas. Lo que cambia por tipo de actividad
+// es el criterio de puntaje que ve cátedra (ver TIPOS).
+const OPCIONES = [
+  { id: "aprueba",       letra: "A", clase: "si",  texto: "Aprueba" },
+  { id: "observaciones", letra: "B", clase: "obs", texto: "Aprueba con observaciones" },
+  { id: "no_aprueba",    letra: "C", clase: "no",  texto: "No aprueba" }
+];
+const opcionPorId = (id) => OPCIONES.find((o) => o.id === id) || null;
+
+// Criterios PROVISORIOS. En la Etapa 7 se editan desde la app, no desde acá.
+const TIPOS = {
+  fragmento: {
+    nombre: "Evaluación de fragmento",
+    corto: "Fragmento",
+    consigna: "Leé el fragmento y dictaminá.",
+    criterio: {
+      2: "Fundamenta con criterios del texto y justifica el fallo.",
+      1: "Identifica el problema pero la justificación es general.",
+      0: "No justifica o la justificación no se apoya en el fragmento."
+    }
   },
-  tarjetas: {
-    label: "Tarjetas de antecedentes",
-    itemNoun: "Tarjeta",
-    promptLabel: "Tema / eje de la tarjeta",
-    contentLabel: "Dato del antecedente",
-    decisionLabel: "¿La incluirían?",
-    sellos: [
-      { id: "relevante", label: "Relevante" },
-      { id: "no_relevante", label: "No relevante" }
-    ]
+  estado: {
+    nombre: "Estado de la cuestión",
+    corto: "Estado",
+    consigna: "¿El párrafo construye estado de la cuestión?",
+    criterio: {
+      2: "Detecta si hay articulación entre autores y recorte al problema.",
+      1: "Nota que algo falta pero no precisa qué.",
+      0: "Confunde listar autores con construir estado de la cuestión."
+    }
+  },
+  objetivos: {
+    nombre: "Objetivos",
+    corto: "Objetivos",
+    consigna: "¿El objetivo está bien formulado?",
+    criterio: {
+      2: "Evalúa verbo, alcance y correspondencia con el problema.",
+      1: "Revisa la forma pero no la correspondencia con el problema.",
+      0: "Juzga por gusto o por redacción, sin criterio metodológico."
+    }
   }
 };
+const TIPO_IDS = Object.keys(TIPOS);
 
-function activityTypeOf(activity) {
-  return ACTIVITY_TYPES[activity.kind] || ACTIVITY_TYPES.dictamen;
-}
-
-function emptyCaseFor(kind) {
-  const def = ACTIVITY_TYPES[kind] || ACTIVITY_TYPES.dictamen;
-  return { id: uid(), titulo: "", pregunta: "", fragmento: "", falloOficial: def.sellos[0].id, base: "", claves: [] };
-}
-
-function newActivity(kind, titulo) {
-  const safeKind = ACTIVITY_TYPES[kind] ? kind : "dictamen";
-  const def = ACTIVITY_TYPES[safeKind];
-  return {
-    id: uid(),
-    kind: safeKind,
-    titulo: (titulo || "").trim() || def.label,
-    activa: true,
-    seconds: 90,
-    cases: [emptyCaseFor(safeKind)]
-  };
-}
-
-const storeKey = (code) => "dictamen-sala-" + code;
-
-function uid() { return Math.random().toString(36).slice(2, 8); }
-function code4() {
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
-function norm(s) {
-  return (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-
-function assignTeam(state) {
-  const counts = {};
-  TEAMS.forEach((t) => { counts[t.id] = state.players.filter((p) => p.teamId === t.id && !p.staff).length; });
-  return TEAMS.slice().sort((a, b) => counts[a.id] - counts[b.id] || a.id.localeCompare(b.id))[0].id;
-}
-
-function emptyAnswers() {
-  const o = {};
-  TEAMS.forEach((t) => { o[t.id] = { sello: null, porque: "", sent: false, judged: null, ai: null }; });
-  return o;
-}
-
-function defaultState(code) {
-  const dictamenActividad = {
-    id: uid(),
-    kind: "dictamen",
-    titulo: "Estado de la cuestión",
-    activa: true,
-    seconds: 90,
-    cases: JSON.parse(JSON.stringify(CASES0))
-  };
-  return {
-    code,
-    rev: 0,
-    phase: "lobby",
-    activityIndex: 0,
-    caseIndex: 0,
-    remaining: dictamenActividad.seconds,
-    endsAt: null,
-    scores: { t1: 0, t2: 0, t3: 0, t4: 0 },
-    answers: emptyAnswers(),
-    players: [],
-    activities: [dictamenActividad],
-    reveal: false,
-    editorId: null
-  };
-}
-
-function currentActivity(state) { return state.activities[state.activityIndex] || state.activities[0]; }
-function currentCase(state) {
-  const act = currentActivity(state);
-  return act.cases[state.caseIndex] || act.cases[0];
-}
-
-function suggestAI(answer, caso) {
-  const selloOk = answer.sello && answer.sello === caso.falloOficial;
-  const text = norm(answer.porque);
-  const hits = (caso.claves || []).filter((k) => text.includes(norm(k)));
-  let cerca = "lejos";
-  if (!answer.sello && !text) cerca = "vacio";
-  else if (selloOk && (hits.length >= 2 || (hits.length >= 1 && text.length > 50))) cerca = "cerca";
-  else if (selloOk && text.length > 30) cerca = "medias";
-  else if (!selloOk && hits.length >= 2) cerca = "medias";
-  const selloTxt = selloOk ? "El sello coincide." : answer.sello ? "El sello no coincide." : "No eligieron sello.";
-  const keyTxt = hits.length ? "Pistas: " + hits.slice(0, 4).join(", ") + "." : "Casi no aparecen las pistas de la base.";
-  let rec = "No sumaría el porqué.";
-  if (cerca === "cerca") rec = "Sugerencia: SUMAR el porqué.";
-  if (cerca === "medias") rec = "Sugerencia: A MEDIAS.";
-  if (cerca === "vacio") rec = "No hay dictamen.";
-  return { selloOk, cerca, hits, texto: selloTxt + " " + keyTxt + " " + rec };
-}
-
-function startRound(state) {
-  const act = currentActivity(state);
-  state.answers = emptyAnswers();
-  state.phase = "play";
-  state.remaining = act.seconds;
-  state.endsAt = Date.now() + act.seconds * 1000;
-  state.reveal = false;
-}
-
-function hasNextCase(state) {
-  return state.caseIndex + 1 < currentActivity(state).cases.length;
-}
-
-function applyHostAction(state, action) {
-  if (action.kind === "start") {
-    startRound(state);
-  } else if (action.kind === "nextRound") {
-    // Encadena la ronda siguiente sin pasar por el panel de carga.
-    if (hasNextCase(state)) {
-      state.caseIndex += 1;
-      startRound(state);
-    }
-  } else if (action.kind === "repeatRound") {
-    startRound(state);
-  } else if (action.kind === "toLobby") {
-    state.phase = "lobby";
-    state.reveal = false;
-  } else if (action.kind === "nextc") {
-    const act = currentActivity(state);
-    state.caseIndex = (state.caseIndex + 1) % act.cases.length;
-    state.phase = "lobby";
-    state.answers = emptyAnswers();
-  } else if (action.kind === "prevc") {
-    const act = currentActivity(state);
-    state.caseIndex = (state.caseIndex - 1 + act.cases.length) % act.cases.length;
-    state.phase = "lobby";
-  } else if (action.kind === "freeze") {
-    TEAMS.forEach((t) => { state.answers[t.id].sent = true; });
-    state.phase = "judge";
-    state.remaining = 0;
-    state.endsAt = null;
-  } else if (action.kind === "judge") {
-    if (state.answers[action.teamId]) state.answers[action.teamId].judged = action.v;
-  } else if (action.kind === "reveal") {
-    const casoNow = currentCase(state);
-    TEAMS.forEach((t) => {
-      const a = state.answers[t.id];
-      let gained = 0;
-      if (a.sello === casoNow.falloOficial) gained += 2;
-      if (a.judged === "suma") gained += 3;
-      if (a.judged === "medias") gained += 1;
-      a.gained = gained;
-      state.scores[t.id] += gained;
-    });
-    state.phase = "score";
-    state.reveal = true;
-  } else if (action.kind === "switchActivity") {
-    if (state.activities[action.index]) {
-      state.activityIndex = action.index;
-      state.caseIndex = 0;
-      state.phase = "lobby";
-      state.answers = emptyAnswers();
-      state.reveal = false;
-    }
-  } else if (action.kind === "toggleActivity") {
-    const act = state.activities[action.index];
-    if (act) act.activa = !act.activa;
-  } else if (action.kind === "addActivity") {
-    state.activities.push(newActivity(action.activityKind, action.titulo));
-    state.activityIndex = state.activities.length - 1;
-    state.caseIndex = 0;
-    state.phase = "lobby";
-  } else if (action.kind === "deleteActivity") {
-    // Siempre tiene que quedar al menos una actividad en la sala.
-    if (state.activities.length > 1 && state.activities[action.index]) {
-      state.activities.splice(action.index, 1);
-      if (state.activityIndex >= state.activities.length) state.activityIndex = state.activities.length - 1;
-      else if (action.index < state.activityIndex) state.activityIndex -= 1;
-      state.caseIndex = 0;
-      state.phase = "lobby";
-      state.answers = emptyAnswers();
-      state.reveal = false;
-    }
+// Biblioteca de fragmentos. En la Etapa 3 se guarda de verdad y se reusa
+// entre partidas; acá arranca con dos ejemplos para poder navegar.
+let BIBLIOTECA = [
+  {
+    id: "f1", tipo: "estado",
+    titulo: "Representaciones sociales · versión lista",
+    pregunta: "¿Cómo influyen las representaciones sociales del rol docente en el malestar de maestras rurales de primaria?",
+    texto: "Diversos autores han definido las representaciones sociales. Moscovici (1961) señala que son sistemas de valores, ideas y prácticas. Jodelet (1986) agrega que permiten interpretar el mundo y orientar la conducta. Abric (1994) distingue núcleo central y elementos periféricos. En educación, estas nociones han sido ampliamente utilizadas para estudiar creencias, identidades y prácticas escolares en distintos niveles y contextos."
+  },
+  {
+    id: "f2", tipo: "estado",
+    titulo: "Representaciones sociales · versión recortada",
+    pregunta: "¿Cómo influyen las representaciones sociales del rol docente en el malestar de maestras rurales de primaria?",
+    texto: "Las representaciones sociales (Moscovici, 1961; Jodelet, 1986) se entienden aquí como sistemas de sentido que organizan la percepción del oficio. No se toma el concepto de modo genérico: se lo recorta al núcleo “buena maestra / escuela posible” en contexto rural (Abric, 1994). Ese recorte permite leer el malestar no como rasgo individual, sino como tensión entre la representación del rol y las condiciones reales de la escuela del interior."
+  },
+  {
+    id: "f3", tipo: "objetivos",
+    titulo: "Objetivo general · primera versión",
+    pregunta: "Proyecto sobre malestar docente en escuelas rurales.",
+    texto: "Objetivo general: conocer la realidad de las maestras rurales de la provincia para mejorar su bienestar y aportar al sistema educativo."
   }
+];
+
+const NOMBRES_DEMO = ["Ana","Belén","Cami","Dana","Euge","Flor","Guada","Ine","Juli","Ken","Lu","Mai","Nico","Orne","Pau","Rocío"];
+
+/* --------------------------------------------------------------- ESTADO --- */
+
+// P = la partida (el futuro "pizarrón compartido"). null = no hay partida.
+let P = null;
+
+// U = lo de cada celular: quién soy y qué estoy escribiendo. Esto NO se comparte.
+let U = {
+  pantalla: "home",   // home | crear
+  rol: null,          // docente | catedra | estudiante
+  miEquipo: null,     // id del equipo que me tocó (solo estudiantes)
+  codigoDraft: "",
+  pinDraft: "",
+  modoStaff: false,
+  error: "",
+  tipoNuevo: null,    // formulario de fragmento nuevo abierto
+  nuevo: { titulo: "", pregunta: "", texto: "" }
+};
+
+let cfg = { tipo: "estado", segundos: 90, elegidos: [] };
+let tick = null;
+let demoTimers = [];
+
+/* ------------------------------------------------------------ UTILIDADES --- */
+
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+const uid = () => Math.random().toString(36).slice(2, 8);
+const azar = (n) => Math.floor(Math.random() * n);
+
+function codigoSala() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 4 }, () => chars[azar(chars.length)]).join("");
+}
+function mmss(seg) {
+  const s = Math.max(0, Math.round(seg));
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+function limpiarTimers() {
+  clearInterval(tick); tick = null;
+  demoTimers.forEach(clearTimeout); demoTimers = [];
 }
 
-const Sync = {
-  role: null, code: null, peer: null, conns: [], studentConn: null,
-  isLive() {
-    return !!(this.studentConn && this.studentConn.open);
-  },
-  saveLocal(state) {
-    localStorage.setItem(storeKey(state.code), JSON.stringify(state));
-  },
-  loadLocal(code) {
-    const raw = localStorage.getItem(storeKey(code));
-    if (!raw) return null;
-    try { return JSON.parse(raw); } catch { return null; }
-  },
-  broadcast(state) {
-    state.rev = (state.rev || 0) + 1;
-    this.saveLocal(state);
-    this.conns.forEach((c) => { try { c.send({ type: "state", state }); } catch (e) {} });
-  },
-  sendToHost(msg) {
-    if (this.studentConn && this.studentConn.open) {
-      this.studentConn.send(msg);
-      return true;
-    }
-    const state = this.loadLocal(this.code);
-    if (!state) return false;
-    if (msg.type === "join" && !state.players.find((p) => p.id === msg.player.id)) {
-      state.players.push(msg.player);
-      this.saveLocal(state);
-    }
-    if (msg.type === "draft" || msg.type === "submit") {
-      const cur = state.answers[msg.teamId] || {};
-      state.answers[msg.teamId] = Object.assign({}, cur, msg.payload, { sent: msg.type === "submit" ? true : cur.sent });
-      this.saveLocal(state);
-    }
-    if (msg.type === "hostAction" && msg.action) {
-      applyHostAction(state, msg.action);
-      this.saveLocal(state);
-    }
-    return true;
-  },
-  startHost(code, getState, applyRemote) {
-    this.role = "host"; this.code = code; this.conns = [];
-    if (typeof Peer === "undefined") return;
-    const open = () => {
-      try {
-        this.peer = new Peer("dic" + code.toLowerCase());
-        this.peer.on("connection", (conn) => {
-          this.conns.push(conn);
-          conn.on("open", () => conn.send({ type: "state", state: getState() }));
-          conn.on("data", applyRemote);
-          conn.on("close", () => { this.conns = this.conns.filter((c) => c !== conn); });
-        });
-        this.peer.on("error", (err) => {
-          if (err && err.type === "unavailable-id") setTimeout(open, 3000);
-        });
-      } catch (e) {}
-    };
-    open();
-  },
-  startStudent(code, onState, sendBuffer) {
-    this.role = "student"; this.code = code;
-    if (typeof Peer === "undefined") return;
-    try {
-      this.peer = new Peer();
-      const connect = (attempt) => {
-        const conn = this.peer.connect("dic" + code.toLowerCase(), { reliable: true });
-        this.studentConn = conn;
-        conn.on("open", () => { (sendBuffer || []).forEach((m) => conn.send(m)); });
-        conn.on("data", (msg) => { if (msg.type === "state") onState(msg.state); });
-        const retry = () => { if (attempt < 8) setTimeout(() => connect(attempt + 1), 2000); };
-        conn.on("error", retry);
-        conn.on("close", retry);
+/* --------------------------------------------------- LÓGICA DE LA PARTIDA --- */
+
+function crearPartida() {
+  const equipos = [1, 2, 3, 4].map((n) => ({ id: "e" + n, nombre: "Equipo " + n, integrantes: [] }));
+  // Sorteo: en la Etapa 2 pasa de verdad, a medida que la gente entra.
+  const gente = NOMBRES_DEMO.slice(0, 11);
+  gente.forEach((nom, i) => equipos[i % 4].integrantes.push(nom));
+
+  P = {
+    codigo: codigoSala(),
+    pin: String(1000 + azar(9000)),
+    tipo: cfg.tipo,
+    segundos: cfg.segundos,
+    rondas: cfg.elegidos.slice(),
+    rondaIndex: 0,
+    fase: "lobby",              // lobby | ronda | puntuando | revelado | fin
+    finRonda: null,
+    equipos,
+    respuestas: {},             // respuestas[rondaIndex][equipoId]
+    puntajes: {}                // puntajes[rondaIndex][equipoId]
+  };
+  U.rol = "docente";
+  U.miEquipo = "e2";            // en la demo, "yo estudiante" soy del Equipo 2
+  U.pantalla = "partida";
+  render();
+}
+
+const fragmentoActual = () => BIBLIOTECA.find((f) => f.id === P.rondas[P.rondaIndex]) || null;
+const respuestasRonda = () => (P.respuestas[P.rondaIndex] ||= {});
+const puntajesRonda = () => (P.puntajes[P.rondaIndex] ||= {});
+const respuestaDe = (eq) => respuestasRonda()[eq] || null;
+
+function totalDe(equipoId) {
+  return Object.values(P.puntajes).reduce((acc, r) => acc + (r[equipoId] ?? 0), 0);
+}
+function ranking() {
+  return P.equipos
+    .map((e) => ({ ...e, total: totalDe(e.id) }))
+    .sort((a, b) => b.total - a.total || a.nombre.localeCompare(b.nombre));
+}
+function respondidos() {
+  return P.equipos.filter((e) => respuestaDe(e.id)?.enviada).length;
+}
+function puntuados() {
+  const p = puntajesRonda();
+  return P.equipos.filter((e) => p[e.id] !== undefined).length;
+}
+
+function iniciarRonda() {
+  limpiarTimers();
+  P.fase = "ronda";
+  P.finRonda = Date.now() + P.segundos * 1000;
+  P.respuestas[P.rondaIndex] = {};
+  P.puntajes[P.rondaIndex] = {};
+
+  tick = setInterval(latido, 250);
+  // Los otros equipos "responden" solos, para poder ver cómo se llena la
+  // pantalla del docente. En la Etapa 2 esto lo hace gente de verdad.
+  P.equipos.filter((e) => e.id !== U.miEquipo).forEach((e) => {
+    const cuando = 4000 + azar(Math.max(3000, P.segundos * 1000 - 12000));
+    demoTimers.push(setTimeout(() => {
+      if (P.fase !== "ronda") return;
+      respuestasRonda()[e.id] = {
+        opcion: OPCIONES[azar(3)].id,
+        justificacion: "El párrafo enumera autores pero no articula la teoría con el problema de investigación.",
+        enviada: true
       };
-      this.peer.on("open", () => connect(0));
-      this.peer.on("error", () => {});
-    } catch (e) {}
+      render();
+    }, cuando));
+  });
+  render();
+}
+
+function latido() {
+  if (!P || P.fase !== "ronda") return;
+  const restante = (P.finRonda - Date.now()) / 1000;
+  pintarTimer(restante);
+  if (restante <= 0) cerrarRonda();
+}
+
+function cerrarRonda() {
+  limpiarTimers();
+  // Al vencer el tiempo se envía lo que haya, aunque esté incompleto.
+  P.equipos.forEach((e) => {
+    const r = respuestasRonda()[e.id];
+    if (!r) respuestasRonda()[e.id] = { opcion: null, justificacion: "", enviada: true, vencida: true };
+    else if (!r.enviada) { r.enviada = true; r.vencida = true; }
+  });
+  P.fase = "puntuando";
+  P.finRonda = null;
+  render();
+}
+
+function siguienteRonda() {
+  if (P.rondaIndex + 1 < P.rondas.length) { P.rondaIndex++; P.fase = "lobby"; }
+  else P.fase = "fin";
+  render();
+}
+
+/* ------------------------------------------------------------- PEDACITOS --- */
+
+function topbar() {
+  if (!P) return "";
+  const etiqueta = { docente: "Docente", catedra: "Cátedra", estudiante: equipoMio()?.nombre || "Estudiante" }[U.rol];
+  return `<div class="topbar">
+    <span class="rolechip ${U.rol}"><i class="dot"></i>${esc(etiqueta)}</span>
+    <span class="codechip">SALA <b>${esc(P.codigo)}</b></span>
+  </div>`;
+}
+
+const equipoMio = () => P.equipos.find((e) => e.id === U.miEquipo);
+
+function pasos() {
+  const n = P.rondas.length;
+  return `<div class="progress-dots">${
+    P.rondas.map((_, i) => `<i class="${i < P.rondaIndex ? "on" : i === P.rondaIndex ? "now" : ""}"></i>`).join("")
+  }</div><p class="muted" style="text-align:center">Ronda ${P.rondaIndex + 1} de ${n}</p>`;
+}
+
+function timerHTML() {
+  const restante = P.finRonda ? (P.finRonda - Date.now()) / 1000 : P.segundos;
+  const pct = Math.max(0, Math.min(100, (restante / P.segundos) * 100));
+  const urg = restante <= 15 ? " urgente" : "";
+  return `<div class="timer${urg}" id="timer">
+    <span class="num" id="tnum">${mmss(restante)}</span>
+    <span class="bar"><i id="tbar" style="width:${pct}%"></i></span>
+  </div>`;
+}
+function pintarTimer(restante) {
+  const num = document.getElementById("tnum"), bar = document.getElementById("tbar"), box = document.getElementById("timer");
+  if (!num) return;
+  num.textContent = mmss(restante);
+  bar.style.width = Math.max(0, Math.min(100, (restante / P.segundos) * 100)) + "%";
+  box.classList.toggle("urgente", restante <= 15);
+}
+
+function fragmentoHTML(f, conPregunta = true) {
+  if (!f) return `<div class="card"><p class="muted">Sin fragmento cargado.</p></div>`;
+  return `<div class="card stack">
+    <div>
+      <p class="kicker">${esc(TIPOS[P.tipo].nombre)}</p>
+      <h2>${esc(f.titulo)}</h2>
+    </div>
+    ${conPregunta && f.pregunta ? `<div class="pregunta">
+      <p class="kicker">Pregunta de investigación</p>
+      <p class="lead">${esc(f.pregunta)}</p>
+    </div>` : ""}
+    <p class="fragmento">${esc(f.texto)}</p>
+  </div>`;
+}
+
+function tagOpcion(id, vencida) {
+  const o = opcionPorId(id);
+  if (!o) return `<span class="tag gris">${vencida ? "Sin responder" : "—"}</span>`;
+  return `<span class="tag ${o.clase}">${esc(o.texto)}</span>`;
+}
+
+function rankingHTML(destacarMio) {
+  return `<div class="rank">${ranking().map((e, i) => `
+    <div class="item ${destacarMio && e.id === U.miEquipo ? "yo" : ""}">
+      <span class="pos">${i + 1}</span>
+      <span class="avatar ${e.id}">${esc(e.nombre.replace("Equipo ", "E"))}</span>
+      <span class="name">${esc(e.nombre)}</span>
+      <span class="spacer"></span>
+      <span class="pts">${e.total}</span>
+    </div>`).join("")}</div>`;
+}
+
+function panelPuntaje(editable) {
+  const crit = TIPOS[P.tipo].criterio;
+  const pts = puntajesRonda();
+  return `
+  <div class="card stack">
+    <div>
+      <p class="kicker">Criterio · ${esc(TIPOS[P.tipo].nombre)}</p>
+      <div class="stack-sm" style="margin-top:6px">
+        ${[2,1,0].map((n) => `<p class="muted"><b style="color:var(--ink)">+${n}</b> · ${esc(crit[n])}</p>`).join("")}
+      </div>
+    </div>
+    <p class="muted" style="font-size:12px">Criterio provisorio — se edita desde la app en la Etapa 7.</p>
+  </div>
+  ${P.equipos.map((e) => {
+    const r = respuestaDe(e.id) || {};
+    const p = pts[e.id];
+    return `<div class="card stack">
+      <div class="row wrap">
+        <span class="avatar ${e.id}">${esc(e.nombre.replace("Equipo ", "E"))}</span>
+        <span class="name">${esc(e.nombre)}</span>
+        <span class="spacer"></span>
+        ${tagOpcion(r.opcion, r.vencida)}
+      </div>
+      <p class="lead">${r.justificacion ? esc(r.justificacion) : `<span class="muted">Sin justificación${r.vencida ? " (se venció el tiempo)" : ""}.</span>`}</p>
+      ${editable ? `<div class="scorebtns">
+        ${[2,1,0].map((n) => `<button class="sbtn" data-a="puntuar" data-eq="${e.id}" data-n="${n}" aria-pressed="${p === n}">+${n}</button>`).join("")}
+      </div>` : `<p class="muted">${p === undefined ? "Sin puntuar todavía" : "Puntaje: +" + p}</p>`}
+    </div>`;
+  }).join("")}`;
+}
+
+function esperando(titulo, texto) {
+  return `<div class="card wait">
+    <div class="pulse"></div>
+    <h2>${esc(titulo)}</h2>
+    <p class="lead muted">${esc(texto)}</p>
+  </div>`;
+}
+
+/* --------------------------------------------------------------- INICIO --- */
+
+function vistaHome() {
+  return `<div class="screen center">
+    <div class="stack" style="gap:22px">
+      <div>
+        <p class="kicker">Juego de cátedra</p>
+        <h1>Dictamen</h1>
+        <p class="lead" style="margin-top:8px">Equipos que leen, deciden y justifican. En vivo, desde el celular.</p>
+      </div>
+
+      <div class="card stack">
+        <label class="field">
+          <span class="label">Código de sala</span>
+          <input class="code-input" id="codigo" type="text" inputmode="latin" autocapitalize="characters"
+                 maxlength="4" placeholder="ABCD" value="${esc(U.codigoDraft)}" />
+        </label>
+        ${U.modoStaff ? `<label class="field">
+          <span class="label">PIN de cátedra</span>
+          <input class="pin-input" id="pin" type="tel" inputmode="numeric" maxlength="4" placeholder="0000" value="${esc(U.pinDraft)}" />
+        </label>` : ""}
+        ${U.error ? `<div class="aviso">${esc(U.error)}</div>` : ""}
+        <button class="btn ${U.modoStaff ? "catedra" : "equipo"}" data-a="entrar">
+          ${U.modoStaff ? "Entrar como cátedra" : "Entrar"}
+        </button>
+        <button class="btn link" data-a="toggle-staff">
+          ${U.modoStaff ? "Soy estudiante" : "Soy del equipo de cátedra"}
+        </button>
+      </div>
+
+      <div class="stack-sm">
+        <div class="divider"></div>
+        <button class="btn ghost" data-a="ir-crear">Crear una partida</button>
+        <p class="muted" style="text-align:center">Para quien dicta la clase</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ------------------------------------------------- DOCENTE · CREAR PARTIDA --- */
+
+function vistaCrear() {
+  const lista = BIBLIOTECA.filter((f) => f.tipo === cfg.tipo);
+  return `<div class="screen">
+    <div class="topbar">
+      <span class="rolechip docente"><i class="dot"></i>Docente</span>
+      <button class="btn link" data-a="home">Salir</button>
+    </div>
+
+    <div>
+      <h1>Armar partida</h1>
+      <p class="lead" style="margin-top:6px">Elegí el tipo de actividad y los fragmentos. Cada fragmento es una ronda.</p>
+    </div>
+
+    <div class="card stack">
+      <div>
+        <span class="label">Tipo de actividad</span>
+        <div class="seg">
+          ${TIPO_IDS.map((t) => `<button data-a="tipo" data-t="${t}" aria-pressed="${cfg.tipo === t}">${esc(TIPOS[t].corto)}</button>`).join("")}
+        </div>
+        <p class="muted" style="margin-top:8px">${esc(TIPOS[cfg.tipo].nombre)} · ${esc(TIPOS[cfg.tipo].consigna)}</p>
+      </div>
+    </div>
+
+    <div class="card stack">
+      <div class="row">
+        <span class="label" style="margin:0">Fragmentos · ${cfg.elegidos.length} elegidos</span>
+        <span class="spacer"></span>
+        <button class="btn sm soft" data-a="nuevo-frag">+ Nuevo</button>
+      </div>
+
+      ${U.tipoNuevo ? `<div class="card flat stack">
+        <label class="field"><span class="label">Título</span>
+          <input type="text" id="n-titulo" value="${esc(U.nuevo.titulo)}" placeholder="Caso 3 · ..." /></label>
+        <label class="field"><span class="label">Pregunta / consigna</span>
+          <input type="text" id="n-pregunta" value="${esc(U.nuevo.pregunta)}" placeholder="Opcional" /></label>
+        <label class="field"><span class="label">Texto del fragmento</span>
+          <textarea id="n-texto" placeholder="Pegá acá el párrafo...">${esc(U.nuevo.texto)}</textarea></label>
+        <div class="row">
+          <button class="btn sm soft" data-a="cancelar-frag">Cancelar</button>
+          <span class="spacer"></span>
+          <button class="btn sm docente" data-a="guardar-frag">Guardar fragmento</button>
+        </div>
+      </div>` : ""}
+
+      ${lista.length ? `<div class="stack-sm">${lista.map((f) => `
+        <button class="check" data-a="elegir" data-f="${f.id}" aria-pressed="${cfg.elegidos.includes(f.id)}">
+          <span class="box">${cfg.elegidos.includes(f.id) ? "✓" : ""}</span>
+          <span>
+            <span class="t">${esc(f.titulo)}</span>
+            <span class="d">${esc(f.texto)}</span>
+          </span>
+        </button>`).join("")}</div>`
+      : `<p class="muted">No hay fragmentos de este tipo todavía. Tocá <b>+ Nuevo</b> para agregar uno.</p>`}
+    </div>
+
+    <div class="card stack">
+      <div>
+        <span class="label">Tiempo por ronda</span>
+        <div class="seg">
+          ${[60, 90, 120].map((s) => `<button data-a="tiempo" data-s="${s}" aria-pressed="${cfg.segundos === s}">${s} s</button>`).join("")}
+        </div>
+      </div>
+    </div>
+
+    <button class="btn docente" data-a="crear" ${cfg.elegidos.length ? "" : "disabled"}>
+      Crear partida · ${cfg.elegidos.length} ronda${cfg.elegidos.length === 1 ? "" : "s"}
+    </button>
+  </div>`;
+}
+
+/* -------------------------------------------------------------- DOCENTE --- */
+
+function vistaDocente() {
+  const f = fragmentoActual();
+  const cuerpo = {
+    lobby: () => `
+      <div class="big-code">
+        <p class="lbl">Código de sala</p>
+        <p class="val">${esc(P.codigo)}</p>
+        <p class="pin">PIN de cátedra <b>${esc(P.pin)}</b></p>
+      </div>
+      ${pasos()}
+      <div class="card stack">
+        <div class="row">
+          <h3>Equipos</h3><span class="spacer"></span>
+          <span class="muted">${P.equipos.reduce((a, e) => a + e.integrantes.length, 0)} personas</span>
+        </div>
+        <div class="list">${P.equipos.map((e) => `
+          <div class="item">
+            <span class="avatar ${e.id}">${esc(e.nombre.replace("Equipo ", "E"))}</span>
+            <span><span class="name">${esc(e.nombre)}</span>
+              <span class="sub">${e.integrantes.length ? esc(e.integrantes.join(", ")) : "vacío"}</span></span>
+          </div>`).join("")}</div>
+      </div>
+      <button class="btn docente" data-a="iniciar">Iniciar ronda ${P.rondaIndex + 1}</button>`,
+
+    ronda: () => `
+      ${pasos()}
+      <div class="card stack">${timerHTML()}
+        <div class="row"><span class="muted">Respuestas recibidas</span><span class="spacer"></span>
+          <b>${respondidos()} de ${P.equipos.length}</b></div>
+      </div>
+      ${fragmentoHTML(f)}
+      <button class="btn ghost" data-a="cortar">Cortar el tiempo y pasar a puntuar</button>`,
+
+    puntuando: () => `
+      ${pasos()}
+      <div class="card stack">
+        <h2>Puntuación de la ronda ${P.rondaIndex + 1}</h2>
+        <p class="lead">Cátedra y vos ven lo mismo. Cuando esté todo puntuado, revelás.</p>
+        <div class="row"><span class="muted">Puntuadas</span><span class="spacer"></span>
+          <b>${puntuados()} de ${P.equipos.length}</b></div>
+      </div>
+      ${panelPuntaje(true)}
+      <button class="btn docente" data-a="revelar" ${puntuados() === P.equipos.length ? "" : "disabled"}>
+        Revelar puntaje</button>`,
+
+    revelado: () => `
+      ${pasos()}
+      <div class="card stack"><h2>Puntaje revelado</h2>
+        <p class="lead">Todas las pantallas están viendo el resultado.</p></div>
+      ${rankingHTML(false)}
+      <button class="btn docente" data-a="siguiente">
+        ${P.rondaIndex + 1 < P.rondas.length ? "Siguiente ronda" : "Terminar partida"}</button>`,
+
+    fin: () => `
+      <div class="card stack"><h1>Partida terminada</h1>
+        <p class="lead">${P.rondas.length} ronda${P.rondas.length === 1 ? "" : "s"} · ${esc(TIPOS[P.tipo].nombre)}</p></div>
+      ${rankingHTML(false)}
+      <button class="btn ghost" data-a="home">Volver al inicio</button>`
+  }[P.fase]();
+
+  return `<div class="screen">${topbar()}${cuerpo}</div>`;
+}
+
+/* -------------------------------------------------------------- CÁTEDRA --- */
+
+function vistaCatedra() {
+  const f = fragmentoActual();
+  const cuerpo = {
+    lobby: () => `${pasos()}
+      ${esperando("Esperando el arranque", "Quien dicta la clase inicia la ronda " + (P.rondaIndex + 1) + ".")}
+      ${fragmentoHTML(f)}`,
+
+    ronda: () => `${pasos()}
+      <div class="card stack">${timerHTML()}
+        <div class="row"><span class="muted">Respuestas recibidas</span><span class="spacer"></span>
+          <b>${respondidos()} de ${P.equipos.length}</b></div>
+      </div>
+      ${fragmentoHTML(f)}`,
+
+    puntuando: () => `${pasos()}
+      <div class="card stack"><h2>A puntuar</h2>
+        <p class="lead">+2, +1 o 0 por respuesta. Sin comentarios de texto.</p></div>
+      ${panelPuntaje(true)}
+      ${puntuados() === P.equipos.length
+        ? `<div class="aviso">Listo. Ahora quien dicta la clase revela el puntaje.</div>` : ""}`,
+
+    revelado: () => `${pasos()}
+      <div class="card stack"><h2>Puntaje revelado</h2></div>
+      ${rankingHTML(false)}
+      ${esperando("Esperando", "Quien dicta la clase avanza a la ronda siguiente.")}`,
+
+    fin: () => `<div class="card stack"><h1>Partida terminada</h1></div>${rankingHTML(false)}
+      <button class="btn ghost" data-a="home">Volver al inicio</button>`
+  }[P.fase]();
+
+  return `<div class="screen">${topbar()}${cuerpo}</div>`;
+}
+
+/* ----------------------------------------------------------- ESTUDIANTE --- */
+
+function vistaEstudiante() {
+  const f = fragmentoActual();
+  const eq = equipoMio();
+  const r = P.fase === "lobby" ? null : respuestaDe(U.miEquipo);
+  const pts = puntajesRonda()[U.miEquipo];
+
+  const cuerpo = {
+    lobby: () => `
+      <div class="card stack" style="text-align:center">
+        <p class="kicker">Te tocó</p>
+        <h1>${esc(eq.nombre)}</h1>
+        <p class="lead">${esc(eq.integrantes.join(" · "))}</p>
+      </div>
+      ${pasos()}
+      ${esperando("Esperando que arranque", "Cuando empiece la ronda vas a ver el fragmento acá.")}`,
+
+    ronda: () => {
+      if (r?.enviada) return `${pasos()}
+        <div class="card stack">${timerHTML()}</div>
+        ${esperando("Respuesta enviada", "Esperá a que terminen los demás equipos.")}
+        <div class="card stack">
+          <div class="row"><span class="muted">Su fallo</span><span class="spacer"></span>${tagOpcion(r.opcion)}</div>
+          <p class="lead">${esc(r.justificacion)}</p>
+        </div>`;
+      const elegida = r?.opcion || null;
+      return `
+        <div class="card stack">${timerHTML()}
+          <p class="muted">Al vencer el tiempo se envía sola, aunque esté incompleta.</p></div>
+        ${fragmentoHTML(f)}
+        <div class="card stack">
+          <span class="label">¿Qué dictaminan?</span>
+          <div class="opts">${OPCIONES.map((o) => `
+            <button class="opt ${o.clase}" data-a="opcion" data-o="${o.id}" aria-pressed="${elegida === o.id}">
+              <span class="badge">${o.letra}</span><span class="txt">${esc(o.texto)}</span>
+            </button>`).join("")}</div>
+        </div>
+        <label class="field card">
+          <span class="label">¿Por qué?</span>
+          <textarea id="justi" placeholder="Escriban la justificación del equipo...">${esc(r?.justificacion || "")}</textarea>
+        </label>
+        <button class="btn equipo" data-a="enviar" ${elegida ? "" : "disabled"}>Enviar respuesta</button>`;
+    },
+
+    puntuando: () => `${pasos()}
+      ${esperando("Cátedra está puntuando", "En un momento ven el resultado de la ronda.")}
+      <div class="card stack">
+        <div class="row"><span class="muted">Su fallo</span><span class="spacer"></span>${tagOpcion(r?.opcion, r?.vencida)}</div>
+        <p class="lead">${r?.justificacion ? esc(r.justificacion) : `<span class="muted">Se venció el tiempo sin justificación.</span>`}</p>
+      </div>`,
+
+    revelado: () => `${pasos()}
+      <div class="card stack" style="text-align:center">
+        <p class="kicker">Ronda ${P.rondaIndex + 1} · ${esc(eq.nombre)}</p>
+        <h1 style="font-size:52px">+${pts ?? 0}</h1>
+        <p class="lead">${esc(TIPOS[P.tipo].criterio[pts ?? 0])}</p>
+      </div>
+      ${rankingHTML(true)}
+      ${esperando("Esperando", "Quien dicta la clase avanza a la ronda siguiente.")}`,
+
+    fin: () => `
+      <div class="card stack" style="text-align:center"><p class="kicker">Terminó</p>
+        <h1>${esc(ranking()[0].nombre)} 🏆</h1></div>
+      ${rankingHTML(true)}
+      <button class="btn ghost" data-a="home">Volver al inicio</button>`
+  }[P.fase]();
+
+  return `<div class="screen">${topbar()}${cuerpo}</div>`;
+}
+
+/* ---------------------------------------------------------------- RENDER --- */
+
+function render() {
+  const activo = document.activeElement;
+  const foco = activo && activo.id ? { id: activo.id, pos: activo.selectionStart } : null;
+
+  let html;
+  if (U.pantalla === "crear") html = vistaCrear();
+  else if (U.pantalla === "home" || !P) html = vistaHome();
+  else html = { docente: vistaDocente, catedra: vistaCatedra, estudiante: vistaEstudiante }[U.rol]();
+  $("#app").innerHTML = html;
+
+  if (foco) {
+    const el = document.getElementById(foco.id);
+    if (el) { el.focus(); try { el.setSelectionRange(foco.pos, foco.pos); } catch (_) {} }
   }
-};
+  renderDemobar();
+}
 
-const App = {
-  role: null, code: null, player: null, state: null, timerId: null, pollId: null,
-  lastPhase: null, playBound: false,
-  // null = automático (abierto solo si falta cargar el ítem); true/false = elección del docente.
-  showEditor: null,
+function renderDemobar() {
+  const roles = [["docente", "Docente"], ["catedra", "Cátedra"], ["estudiante", "Estudiante"]];
+  $("#demobar").innerHTML = !P || U.pantalla !== "partida"
+    ? `<span class="lbl" style="max-width:none">Etapa 1 · esqueleto sin base de datos</span>`
+    : `<span class="lbl">Ver como</span>
+       <span class="segs">${roles.map(([r, t]) =>
+         `<button data-a="rol" data-r="${r}" aria-pressed="${U.rol === r}">${t}</button>`).join("")}</span>
+       <button class="reset" data-a="reset">Reiniciar</button>`;
+}
 
-  setState(next, broadcast) {
-    this.state = next;
-    if (broadcast !== false && this.role === "host") Sync.broadcast(next);
-    this.render();
-  },
+/* ---------------------------------------------------------------- EVENTOS --- */
 
-  startPoll() {
-    clearInterval(this.pollId);
-    this.pollId = setInterval(() => {
-      if (!this.code) return;
-      const s = Sync.loadLocal(this.code);
-      if (!s) return;
-      if (this.role === "student") {
-        // El link en vivo manda: este sondeo a localStorage es solo el respaldo
-        // para cuando docente y estudiante comparten el mismo navegador. En un
-        // celular aparte la copia local es vieja y pisaría lo que llegó por red.
-        if (Sync.isLive()) return;
-        if (this.state && (s.rev || 0) < (this.state.rev || 0)) return;
-        const prevPhase = this.state && this.state.phase;
-        const prevReveal = this.state && this.state.reveal;
-        const hadState = !!this.state;
-        this.state = s;
-        if (!this.player) {
-          if (!hadState) this.render();
-          return;
-        }
-        if (s.phase === "play") {
-          if (prevPhase !== "play") this.render();
-          else this.tickOnly();
-          return;
-        }
-        if (prevPhase !== s.phase || prevReveal !== s.reveal) this.render();
-      }
-      if (this.role === "host" && this.state && this.state.phase === "play") {
-        this.state.players = s.players;
-        this.state.answers = s.answers;
-        this.patchHostLive();
-      }
-    }, 400);
-  },
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-a]");
+  if (!b) return;
+  const a = b.dataset.a;
 
-  tickOnly() {
-    const el = document.getElementById("live-timer");
-    if (!el || !this.state) return;
-    const live = this.state.phase === "play"
-      ? Math.max(0, this.state.endsAt ? Math.ceil((this.state.endsAt - Date.now()) / 1000) : this.state.remaining)
-      : this.state.remaining;
-    el.textContent = String(live);
-  },
-
-  patchHostLive() {
-    if (!this.state || this.state.phase !== "play") return;
-    TEAMS.forEach((t) => {
-      const tag = document.getElementById("st-" + t.id);
-      if (!tag) return;
-      const a = this.state.answers[t.id];
-      tag.textContent = a.sent ? "enviado" : (a.sello || a.porque ? "escribiendo" : "sin tocar");
-      tag.className = "tag " + (a.sello || a.porque ? "wait" : "no");
-    });
-    const people = document.getElementById("people-count");
-    if (people) people.textContent = this.state.players.length + " en la sala";
-  },
-
-  go(hash) { location.hash = hash; this.route(); },
-
-  route() {
-    const parts = (location.hash.replace("#", "") || "/").split("/").filter(Boolean);
-    if (parts[0] === "docente" && parts[1]) {
-      this.role = "host";
-      this.code = parts[1].toUpperCase();
-      this.state = Sync.loadLocal(this.code) || defaultState(this.code);
-      const staffKey = "dictamen-editor-" + this.code;
-      let staffId = sessionStorage.getItem(staffKey);
-      if (!staffId) {
-        staffId = uid();
-        sessionStorage.setItem(staffKey, staffId);
-      }
-      this.staffId = staffId;
-      this.canEdit = !!(this.state.editorId && this.state.editorId === staffId);
-      if (this.canEdit) {
-        Sync.startHost(this.code, () => this.state, (msg) => this.hostReceive(msg));
-      } else {
-        Sync.startStudent(this.code, (st) => {
-          const prevPhase = this.state && this.state.phase;
-          this.state = st;
-          if (st.phase === "play") {
-            if (prevPhase !== "play") this.render();
-            else this.tickOnly();
-            return;
-          }
-          this.render();
-        }, []);
-      }
-      this.startPoll();
-      this.ensureTimer();
-      this.render();
-      return;
-    }
-    if (parts[0] === "jugar" && parts[1]) {
-      this.role = "student";
-      this.code = parts[1].toUpperCase();
-      const saved = sessionStorage.getItem("dictamen-player");
-      this.player = saved ? JSON.parse(saved) : null;
-      this.state = Sync.loadLocal(this.code) || null;
-      Sync.startStudent(this.code, (st) => {
-        const prevPhase = this.state && this.state.phase;
-        const hadState = !!this.state;
-        this.state = st;
-        if (!this.player) {
-          if (!hadState) this.render();
-          return;
-        }
-        if (st.phase === "play") {
-          if (prevPhase !== "play") this.render();
-          else this.tickOnly();
-          return;
-        }
-        if (prevPhase !== st.phase) this.render();
-      }, this.player ? [{ type: "join", player: this.player }] : []);
-      this.startPoll();
-      this.render();
-      return;
-    }
-    this.role = null;
-    this.renderHome();
-  },
-
-  hostReceive(msg) {
-    if (!this.state) return;
-    if (msg.type === "join" && msg.player && !this.state.players.find((p) => p.id === msg.player.id)) {
-      if (!msg.player.staff && !msg.player.teamId) msg.player.teamId = assignTeam(this.state);
-      this.state.players.push(msg.player);
-      Sync.broadcast(this.state);
-      const typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-      if (this.state.phase !== "play" && !typing) this.render();
-    }
-    if ((msg.type === "draft" || msg.type === "submit") && msg.teamId) {
-      const cur = this.state.answers[msg.teamId] || {};
-      this.state.answers[msg.teamId] = Object.assign({}, cur, {
-        sello: msg.payload.sello,
-        porque: msg.payload.porque,
-        sent: msg.type === "submit" ? true : cur.sent
-      });
-      Sync.broadcast(this.state);
-      if (this.state.phase === "play") this.patchHostLive();
-      else this.render();
-    }
-    if (msg.type === "hostAction" && msg.action) {
-      applyHostAction(this.state, msg.action);
-      this.setState(this.state);
-    }
-  },
-
-  performAction(kind, extra) {
-    const action = Object.assign({ kind }, extra || {});
-    if (this.canEdit) {
-      applyHostAction(this.state, action);
-      this.setState(this.state);
+  // --- inicio ---
+  if (a === "toggle-staff") { U.modoStaff = !U.modoStaff; U.error = ""; return render(); }
+  if (a === "ir-crear") { U.pantalla = "crear"; U.error = ""; return render(); }
+  if (a === "home") { U.pantalla = "home"; U.rol = null; U.error = ""; U.modoStaff = false; return render(); }
+  if (a === "entrar") {
+    const cod = (U.codigoDraft || "").trim().toUpperCase();
+    if (!P) { U.error = "Todavía no hay ninguna partida. En esta etapa la sala vive solo en esta pestaña: creá una desde “Crear una partida”."; return render(); }
+    if (cod !== P.codigo) { U.error = "No encontramos esa sala. Revisá el código."; return render(); }
+    if (U.modoStaff) {
+      if (U.pinDraft.trim() !== P.pin) { U.error = "PIN incorrecto."; return render(); }
+      U.rol = "catedra";
     } else {
-      Sync.sendToHost({ type: "hostAction", action });
+      U.rol = "estudiante";
+      U.miEquipo = U.miEquipo || "e2";
     }
-  },
-
-  ensureTimer() {
-    clearInterval(this.timerId);
-    this.timerId = setInterval(() => {
-      if (this.role !== "host" || !this.state || this.state.phase !== "play" || !this.state.endsAt) return;
-      const left = Math.max(0, Math.ceil((this.state.endsAt - Date.now()) / 1000));
-      this.state.remaining = left;
-      const el = document.getElementById("live-timer");
-      if (el) el.textContent = String(left);
-      if (left === 0 && this.canEdit) this.freezeRound();
-    }, 250);
-  },
-
-  freezeRound() {
-    this.performAction("freeze");
-  },
-
-  render() {
-    if (!this.role) return this.renderHome();
-    if (this.role === "host") return this.renderHost();
-    return this.renderStudent();
-  },
-
-  renderHome() {
-    document.getElementById("app").innerHTML =
-      '<div class="shell"><div class="topbar"><div class="brand"><b>Mi primer dictamen</b>marco teórico</div></div>' +
-      '<div class="hero-card"><div class="kicker">Concurso de aula</div>' +
-      "<h1>Mi primer dictamen</h1>" +
-      '<p class="lead">Cargás una o varias actividades (dictamen, tarjetas de antecedentes y las que sumes), ellas deciden y escriben el porqué. Cuando se congela el tiempo, el profe y las ayudantes juzgan en vivo.</p>' +
-      '<div class="grid-2">' +
-      '<button class="choice" id="btn-create"><strong>Crear sala</strong><small>Primera persona: carga las actividades</small></button>' +
-      '<button class="choice alt" id="btn-staff"><strong>Soy ayudante</strong><small>Entro con el código a juzgar, sin editar</small></button>' +
-      "</div>" +
-      '<button class="choice" id="btn-join-panel" style="margin-top:10px;background:linear-gradient(135deg,#ffe14d,#ff2e8a);color:#12081f"><strong>Soy estudiante</strong><small>El equipo se asigna solo al entrar</small></button>' +
-      "</div>" +
-      '<div id="join-box" class="hero-card" style="margin-top:14px;display:none">' +
-      "<label>Código de sala</label><div class=\"row\">" +
-      '<input id="join-code" maxlength="6" placeholder="Ej. K7QM" style="flex:1;text-transform:uppercase" />' +
-      '<button class="btn gold" id="go-join">Entrar</button></div>' +
-      '<p class="muted" id="join-hint"></p></div>' +
-      '<p class="footer-note">Para el aula, subí este archivo a un link (Netlify o GitHub Pages). Para probar: docente en una pestaña, estudiante en otra.</p></div>';
-    document.getElementById("btn-create").onclick = () => {
-      const code = code4();
-      const st = defaultState(code);
-      const editorId = uid();
-      st.editorId = editorId;
-      sessionStorage.setItem("dictamen-editor-" + code, editorId);
-      Sync.saveLocal(st);
-      this.go("/docente/" + code);
-    };
-    document.getElementById("btn-staff").onclick = () => {
-      document.getElementById("join-box").style.display = "block";
-      document.getElementById("join-hint").textContent = "Ayudante: mismo código, panel de juicio sin editor.";
-      document.getElementById("join-box").dataset.mode = "staff";
-      document.getElementById("join-code").focus();
-    };
-    document.getElementById("btn-join-panel").onclick = () => {
-      document.getElementById("join-box").style.display = "block";
-      document.getElementById("join-hint").textContent = "Estudiante: el equipo se asigna solo.";
-      document.getElementById("join-box").dataset.mode = "student";
-      document.getElementById("join-code").focus();
-    };
-    document.getElementById("go-join").onclick = () => {
-      const code = document.getElementById("join-code").value.trim().toUpperCase();
-      if (code.length < 3) return;
-      const mode = document.getElementById("join-box").dataset.mode || "student";
-      this.go((mode === "staff" ? "/docente/" : "/jugar/") + code);
-    };
-  },
-
-  renderHost() {
-    const st = this.state;
-    const act = currentActivity(st);
-    const typeDef = activityTypeOf(act);
-    const caso = currentCase(st);
-    const live = Math.max(0, st.remaining);
-    const joined = TEAMS.map((t) => ({
-      ...t,
-      people: st.players.filter((p) => p.teamId === t.id),
-      ans: st.answers[t.id]
-    }));
-    const nPeople = st.players.length;
-    let body = "";
-
-    if (st.phase === "score") {
-      const oficial = escapeHtml((typeDef.sellos.find((s) => s.id === caso.falloOficial) || {}).label || "—");
-      const hayOtro = hasNextCase(st);
-      body =
-        '<div class="paper" style="margin-bottom:12px">' +
-        '<div class="kicker">Ronda cerrada · ' + escapeHtml(act.titulo) + " · " +
-        escapeHtml(typeDef.itemNoun) + " " + (st.caseIndex + 1) + " de " + act.cases.length + "</div>" +
-        '<h2 style="margin:8px 0 6px">' + escapeHtml(caso.titulo || (typeDef.itemNoun + " " + (st.caseIndex + 1))) + "</h2>" +
-        '<p class="muted">' + escapeHtml(typeDef.decisionLabel) + " oficial: <b>" + oficial + "</b></p>" +
-        '<p style="margin:8px 0 0">' + escapeHtml(caso.base) + "</p></div>" +
-        '<div class="grid-4">' +
-        joined.map((t) => {
-          const a = t.ans;
-          const selloOk = a.sello && a.sello === caso.falloOficial;
-          const selloLabel = (typeDef.sellos.find((s) => s.id === a.sello) || {}).label || "Sin elegir";
-          return '<div class="paper"><b>' + escapeHtml(t.name) + "</b>" +
-            '<div style="margin-top:6px"><span class="tag ' + (selloOk ? "ok" : "no") + '">' + escapeHtml(selloLabel) + "</span></div>" +
-            '<div class="pts" style="font-family:Fraunces,serif;font-size:28px;color:var(--pink)">+' + (a.gained || 0) + "</div>" +
-            '<div class="muted">total ' + st.scores[t.id] + "</div></div>";
-        }).join("") +
-        "</div>" +
-        '<div class="row" style="margin-top:12px">' +
-        (hayOtro
-          ? '<button class="btn gold" id="next-round">Siguiente ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + " e iniciar</button>" +
-            '<button class="btn ghost" id="nextc">Siguiente sin iniciar</button>'
-          : "") +
-        '<button class="btn ghost" id="repeat-round">Repetir ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + "</button>" +
-        '<button class="btn ghost" id="to-lobby">Panel y carga</button></div>' +
-        (hayOtro
-          ? ""
-          : '<p class="muted" style="margin-top:10px">Terminaron ' + act.cases.length + " " +
-            escapeHtml(act.cases.length === 1 ? typeDef.itemNoun.toLowerCase() : typeDef.itemNoun.toLowerCase() + "s") +
-            " de esta actividad. Desde <b>Panel y carga</b> podés cambiar de actividad o cargar más.</p>");
-    }
-
-    if (st.phase === "lobby") {
-      const left =
-        '<div class="kicker">' + escapeHtml(act.titulo) + " · " + escapeHtml(typeDef.itemNoun) + " " +
-        (st.caseIndex + 1) + " de " + act.cases.length + "</div>" +
-        '<h2 style="margin:8px 0 6px">' + escapeHtml(caso.titulo || (typeDef.itemNoun + " " + (st.caseIndex + 1))) + "</h2>" +
-        '<div class="qbox"><b>' + escapeHtml(typeDef.promptLabel) + "</b><br>" + escapeHtml(caso.pregunta) + "</div>" +
-        '<p class="fragment">' + escapeHtml(caso.fragmento) + "</p>" +
-        '<p class="muted" style="margin-top:10px">' + escapeHtml(typeDef.decisionLabel) + " oficial: <b>" +
-        escapeHtml((typeDef.sellos.find((s) => s.id === caso.falloOficial) || {}).label || "—") + "</b></p>" +
-        '<p class="muted" id="people-count">' + nPeople + " en la sala</p>" +
-        '<label style="margin-top:12px">Actividad en curso</label>' +
-        '<select id="act-select">' +
-        st.activities.map((a, i) => '<option value="' + i + '"' + (i === st.activityIndex ? " selected" : "") +
-          (a.activa ? "" : " disabled") + ">" + escapeHtml(a.titulo) + (a.activa ? "" : " (inactiva)") + "</option>").join("") +
-        "</select>" +
-        '<div class="row" style="margin-top:12px">' +
-        '<button class="btn gold" id="start">Iniciar ronda</button>' +
-        '<button class="btn ghost" id="prevc">Anterior</button>' +
-        '<button class="btn ghost" id="nextc">Siguiente ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + "</button></div>";
-
-      const activitiesManager =
-        '<div class="kicker">Actividades de la sala</div>' +
-        st.activities.map((a, i) => {
-          const def = activityTypeOf(a);
-          const rowLabelStyle = "display:flex;align-items:center;gap:8px;flex:1;margin:0;font-weight:400;font-size:14px;" +
-            "text-transform:none;letter-spacing:normal;color:var(--ink)";
-          return '<div style="display:flex;align-items:center;gap:8px;border:2px solid #f5b4d8;border-radius:12px;padding:8px 10px;margin-top:8px">' +
-            '<label style="' + rowLabelStyle + '">' +
-            '<input type="checkbox" class="js-toggle-act" data-index="' + i + '"' + (a.activa ? " checked" : "") + ' style="width:auto" />' +
-            "<span>" + escapeHtml(a.titulo) + ' <span class="muted">(' + escapeHtml(def.label) + ", " + a.cases.length + ")</span></span>" +
-            "</label>" +
-            (st.activities.length > 1
-              ? '<button class="btn red small js-del-act" data-index="' + i + '">Borrar</button>'
-              : "") +
-            "</div>";
-        }).join("") +
-        '<p class="muted" style="margin-top:8px">Desmarcá una actividad si no llegás a hacerla; queda guardada para otra sesión.</p>' +
-        '<div class="row" style="margin-top:8px">' +
-        '<input id="new-act-titulo" placeholder="Nombre de la nueva actividad" style="flex:2" />' +
-        '<select id="new-act-kind" style="flex:1">' +
-        Object.keys(ACTIVITY_TYPES).map((k) => '<option value="' + k + '">' + escapeHtml(ACTIVITY_TYPES[k].label) + "</option>").join("") +
-        "</select>" +
-        '<button class="btn cyan" id="add-activity">+ Agregar actividad</button></div>';
-
-      // Una vez que la actividad ya tiene contenido, el formulario estorba entre
-      // rondas: queda plegado salvo que falte cargar el ítem o lo abra a mano.
-      const editorOpen = this.showEditor === null ? !caso.fragmento : this.showEditor;
-      const editorHeader =
-        '<div class="row" style="justify-content:space-between;align-items:center;flex-wrap:nowrap;gap:8px">' +
-        '<div class="kicker">Cargar / editar ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + " · " + escapeHtml(act.titulo) + "</div>" +
-        '<button class="btn ghost small" id="toggle-editor">' + (editorOpen ? "Ocultar" : "Mostrar") + "</button></div>";
-
-      const editForm = editorHeader + (!editorOpen
-        ? '<p class="muted" style="margin-top:10px">' + act.cases.length + " " +
-          escapeHtml(act.cases.length === 1 ? typeDef.itemNoun.toLowerCase() : typeDef.itemNoun.toLowerCase() + "s") +
-          " cargados · vas por el " + (st.caseIndex + 1) + ". Tocá <b>Mostrar</b> para editarlos o agregar más.</p>"
-        : '<label style="margin-top:10px">Título</label><input id="f-titulo" value="' + escapeHtml(caso.titulo || "") + '" />' +
-        '<label style="margin-top:8px">' + escapeHtml(typeDef.promptLabel) + '</label><textarea id="f-preg" style="min-height:70px">' + escapeHtml(caso.pregunta || "") + "</textarea>" +
-        '<label style="margin-top:8px">' + escapeHtml(typeDef.contentLabel) + '</label><textarea id="f-frag">' + escapeHtml(caso.fragmento || "") + "</textarea>" +
-        '<label style="margin-top:8px">' + escapeHtml(typeDef.decisionLabel) + ' oficial</label><select id="f-fallo">' +
-        typeDef.sellos.map((s) => '<option value="' + s.id + '"' + (caso.falloOficial === s.id ? " selected" : "") + ">" + s.label + "</option>").join("") +
-        "</select>" +
-        '<label style="margin-top:8px">Respuesta base (por qué)</label><textarea id="f-base" style="min-height:80px">' + escapeHtml(caso.base || "") + "</textarea>" +
-        '<label style="margin-top:8px">Segundos</label><input id="secs" type="number" min="20" max="300" value="' + act.seconds + '" />' +
-        '<div class="row" style="margin-top:12px">' +
-        '<button class="btn cyan" id="save-case">Guardar</button>' +
-        '<button class="btn ghost" id="add-case">Agregar ' + escapeHtml(typeDef.itemNoun.toLowerCase()) + " vacío</button></div>" +
-        '<p class="muted" style="margin-top:10px">' + escapeHtml(typeDef.itemNoun) + " " + (st.caseIndex + 1) + " de " + act.cases.length + "</p>");
-
-      body =
-        '<div class="grid-2"><div class="paper">' + left + "</div>" +
-        (this.canEdit
-          ? '<div style="display:flex;flex-direction:column;gap:14px">' +
-            '<div class="paper">' + activitiesManager + "</div>" +
-            '<div class="paper">' + editForm + "</div>" +
-            "</div>"
-          : '<div class="paper"><div class="kicker">Ayudante</div><p>Solo quien creó la sala puede editar el contenido y las actividades. Vos elegís la actividad en curso, largás la ronda y juzgás cuando se congelen las respuestas.</p></div>') +
-        "</div>";
-    }
-
-    if (st.phase === "play") {
-      body =
-        '<div class="paper" style="text-align:center"><div class="kicker">Tiempo para dictaminar</div>' +
-        '<div class="timer" id="live-timer">' + live + "</div>" +
-        '<p class="muted" id="people-count">' + nPeople + " en la sala · al llegar a 0 se envía lo escrito</p></div>" +
-        '<div class="paper" style="margin-top:12px"><div class="qbox">' + escapeHtml(caso.pregunta) + "</div>" +
-        '<p class="fragment">' + escapeHtml(caso.fragmento) + "</p></div>" +
-        '<div class="grid-4" style="margin-top:12px">' +
-        joined.map((t) =>
-          '<div class="paper"><b>' + escapeHtml(t.name) + "</b>" +
-          '<div class="muted">' + t.people.map((p) => escapeHtml(p.name)).join(", ") + "</div>" +
-          '<div style="margin-top:8px"><span class="tag ' + (t.ans.sello || t.ans.porque ? "wait" : "no") + '" id="st-' + t.id + '">' +
-          (t.ans.sent ? "enviado" : (t.ans.sello || t.ans.porque ? "escribiendo" : "sin tocar")) +
-          "</span></div></div>"
-        ).join("") +
-        '</div><div class="row" style="margin-top:12px"><button class="btn red" id="freeze">Congelar ahora</button></div>';
-    }
-
-    if (st.phase === "judge") {
-      body =
-        '<div class="paper" style="margin-bottom:12px"><div class="kicker">El profe y las ayudantes deliberan</div>' +
-        '<p><b>Base:</b> ' + escapeHtml(caso.base) + "</p>" +
-        '<p class="muted">' + escapeHtml(typeDef.decisionLabel) + " oficial: " + escapeHtml((typeDef.sellos.find((s) => s.id === caso.falloOficial) || {}).label || "—") + "</p></div>" +
-        '<div class="judge-grid">' +
-        joined.map((t) => {
-          const a = t.ans;
-          const selloOk = a.sello && a.sello === caso.falloOficial;
-          const selloLabel = (typeDef.sellos.find((s) => s.id === a.sello) || {}).label || "Sin elegir";
-          return '<div class="paper"><div class="row" style="justify-content:space-between;align-items:center">' +
-            "<b>" + escapeHtml(t.name) + '</b><span class="tag ' + (selloOk ? "ok" : "no") + '">' + escapeHtml(selloLabel) + "</span></div>" +
-            '<p style="white-space:pre-wrap;margin:10px 0">' + (escapeHtml(a.porque) || "<span class='muted'>Sin texto</span>") + "</p>" +
-            '<div class="row">' +
-            '<button class="btn green small js-j" data-team="' + t.id + '" data-v="suma">Suma +3</button>' +
-            '<button class="btn amber small js-j" data-team="' + t.id + '" data-v="medias">A medias +1</button>' +
-            '<button class="btn red small js-j" data-team="' + t.id + '" data-v="no">No suma</button></div>' +
-            '<p class="muted" style="margin:8px 0 0">' + (a.judged ? "Cargado: " + a.judged : "Todavía no juzgado") + "</p></div>";
-        }).join("") +
-        '</div><div class="row" style="margin-top:12px"><button class="btn gold" id="reveal">Develar y sumar</button></div>';
-    }
-
-    document.getElementById("app").innerHTML =
-      '<div class="shell"><div class="topbar"><div class="brand"><b>Mi primer dictamen</b>sala ' + st.code + "</div>" +
-      '<div class="pill"><span class="sync-dot"></span>' + st.phase + " · " + nPeople + " conectadas</div></div>" +
-      '<div class="scoreboard" style="margin-bottom:14px">' +
-      joined.map((t) => '<div class="team"><div class="name">' + escapeHtml(t.name) + " · " +
-        (t.people.map((p) => escapeHtml(p.name)).join(", ") || "vacío") + '</div><div class="pts">' + st.scores[t.id] + "</div></div>").join("") +
-      "</div>" + body + "</div>";
-
-    const bindSave = () => {
-      const curAct = currentActivity(this.state);
-      const c = curAct.cases[this.state.caseIndex];
-      c.titulo = document.getElementById("f-titulo").value.trim() || (activityTypeOf(curAct).itemNoun + " " + (this.state.caseIndex + 1));
-      c.pregunta = document.getElementById("f-preg").value;
-      c.fragmento = document.getElementById("f-frag").value;
-      c.falloOficial = document.getElementById("f-fallo").value;
-      c.base = document.getElementById("f-base").value;
-      curAct.seconds = Number(document.getElementById("secs").value || 90);
-      this.setState(this.state);
-    };
-    const saveBtn = document.getElementById("save-case");
-    if (saveBtn) saveBtn.onclick = bindSave;
-    const addBtn = document.getElementById("add-case");
-    if (addBtn) addBtn.onclick = () => {
-      if (document.getElementById("f-titulo")) bindSave();
-      const curAct = currentActivity(this.state);
-      curAct.cases.push(emptyCaseFor(curAct.kind));
-      this.state.caseIndex = curAct.cases.length - 1;
-      this.showEditor = true;
-      this.setState(this.state);
-    };
-    const toggleEditor = document.getElementById("toggle-editor");
-    if (toggleEditor) toggleEditor.onclick = () => {
-      const caseNow = currentCase(this.state);
-      const openNow = this.showEditor === null ? !caseNow.fragmento : this.showEditor;
-      this.showEditor = !openNow;
-      // Al plegarlo guardamos lo escrito para no perder cambios sin guardar.
-      if (openNow && document.getElementById("f-titulo")) bindSave();
-      else this.render();
-    };
-    const actSelect = document.getElementById("act-select");
-    if (actSelect) actSelect.onchange = () => {
-      this.performAction("switchActivity", { index: Number(actSelect.value) });
-    };
-    document.querySelectorAll(".js-toggle-act").forEach((cb) => {
-      cb.onchange = () => {
-        this.performAction("toggleActivity", { index: Number(cb.dataset.index) });
-      };
-    });
-    document.querySelectorAll(".js-del-act").forEach((b) => {
-      b.onclick = () => {
-        const i = Number(b.dataset.index);
-        const victim = this.state.activities[i];
-        if (!victim) return;
-        const ok = confirm('¿Borrar la actividad "' + victim.titulo + '"? Se pierde su contenido y no se puede deshacer.');
-        if (ok) this.performAction("deleteActivity", { index: i });
-      };
-    });
-    const addActivityBtn = document.getElementById("add-activity");
-    if (addActivityBtn) addActivityBtn.onclick = () => {
-      const titulo = document.getElementById("new-act-titulo").value;
-      const activityKind = document.getElementById("new-act-kind").value;
-      this.performAction("addActivity", { activityKind, titulo });
-    };
-    const start = document.getElementById("start");
-    if (start) start.onclick = () => {
-      if (document.getElementById("f-titulo")) bindSave();
-      this.showEditor = null;
-      this.performAction("start");
-      this.ensureTimer();
-    };
-    const nextRound = document.getElementById("next-round");
-    if (nextRound) nextRound.onclick = () => {
-      this.showEditor = null;
-      this.performAction("nextRound");
-      this.ensureTimer();
-    };
-    const repeatRound = document.getElementById("repeat-round");
-    if (repeatRound) repeatRound.onclick = () => {
-      this.showEditor = null;
-      this.performAction("repeatRound");
-      this.ensureTimer();
-    };
-    const toLobby = document.getElementById("to-lobby");
-    if (toLobby) toLobby.onclick = () => this.performAction("toLobby");
-    const nextc = document.getElementById("nextc");
-    if (nextc) nextc.onclick = () => {
-      if (document.getElementById("f-titulo")) bindSave();
-      this.performAction("nextc");
-    };
-    const prevc = document.getElementById("prevc");
-    if (prevc) prevc.onclick = () => {
-      if (document.getElementById("f-titulo")) bindSave();
-      this.performAction("prevc");
-    };
-    const freeze = document.getElementById("freeze");
-    if (freeze) freeze.onclick = () => this.performAction("freeze");
-    document.querySelectorAll(".js-j").forEach((b) => {
-      b.onclick = () => {
-        this.performAction("judge", { teamId: b.dataset.team, v: b.dataset.v });
-      };
-    });
-    const reveal = document.getElementById("reveal");
-    if (reveal) reveal.onclick = () => this.performAction("reveal");
-  },
-
-  renderStudent() {
-    const app = document.getElementById("app");
-    if (!this.state) {
-      app.innerHTML = '<div class="shell"><div class="hero-card"><h2 class="serif">Sala ' + escapeHtml(this.code || "") +
-        "</h2><p class=\"lead\">No encuentro esta sala en este dispositivo. Creala primero en modo docente (misma compu o el mismo link publicado).</p>" +
-        '<button class="btn ghost" id="back">Volver</button></div></div>';
-      document.getElementById("back").onclick = () => this.go("/");
-      return;
-    }
-
-    if (!this.player) {
-      app.innerHTML = '<div class="shell"><div class="hero-card"><div class="kicker">Mi primer dictamen · ' + this.state.code + "</div>" +
-        '<h2 class="serif" style="color:var(--ink)">Tu lugar</h2>' +
-        '<label>Nombre o apodo</label><input id="pname" maxlength="24" placeholder="Ej. Evelin" autocomplete="off" autocorrect="off" spellcheck="false" />' +
-        '<p class="muted">El equipo se asigna solo, en orden, a medida que van entrando.</p>' +
-        '<div class="row" style="margin-top:14px"><button class="btn gold" id="enter">Entrar</button></div></div></div>';
-      document.getElementById("enter").onclick = () => {
-        const name = (document.getElementById("pname").value || "").trim() || "Alumna";
-        const st = Sync.loadLocal(this.code) || this.state;
-        const teamId = assignTeam(st);
-        this.player = { id: uid(), name: name, teamId: teamId };
-        sessionStorage.setItem("dictamen-player", JSON.stringify(this.player));
-        Sync.sendToHost({ type: "join", player: this.player });
-        if (st && !st.players.find((p) => p.id === this.player.id)) {
-          st.players.push(this.player);
-          // Solo persistimos la sala cuando no hay link en vivo (mismo navegador
-          // que el docente). Con link, guardarla dejaría una copia vieja que el
-          // sondeo devolvería encima del estado real.
-          if (!Sync.isLive()) Sync.saveLocal(st);
-          this.state = st;
-        }
-        this.render();
-      };
-      return;
-    }
-
-    const act = currentActivity(this.state);
-    const typeDef = activityTypeOf(act);
-    const caso = currentCase(this.state);
-    const mine = this.state.answers[this.player.teamId] || emptyAnswers()[this.player.teamId];
-    const live = this.state.phase === "play"
-      ? Math.max(0, this.state.endsAt ? Math.ceil((this.state.endsAt - Date.now()) / 1000) : this.state.remaining)
-      : this.state.remaining;
-    const teamName = TEAMS.find((t) => t.id === this.player.teamId).name;
-
-    if (this.state.phase === "lobby" || this.state.phase === "score") {
-      const revealed = this.state.reveal;
-      app.innerHTML = '<div class="shell"><div class="topbar"><div class="brand"><b>' + escapeHtml(teamName) + "</b>" +
-        escapeHtml(this.player.name) + '</div><div class="pill">' + this.state.scores[this.player.teamId] + " pts</div></div>" +
-        '<div class="wait-screen paper"><div class="kicker">' + escapeHtml(act.titulo) + " · " + (revealed ? "Ronda cerrada" : "Esperando al profe y al resto") + "</div>" +
-        '<h2 class="serif" style="color:var(--ink)">' + (revealed ? "Ya está el fallo" : "Cuando estén todas, largan la ronda") + "</h2>" +
-        (revealed
-          ? "<p>" + escapeHtml(typeDef.decisionLabel) + " oficial: <b>" + escapeHtml((typeDef.sellos.find((s) => s.id === caso.falloOficial) || {}).label || "—") + "</b></p><p class=\"muted\">" + escapeHtml(caso.base) + "</p>"
-          : '<p class="muted">Ya estás adentro.</p>') +
-        "</div></div>";
-      return;
-    }
-
-    if (this.state.phase === "judge") {
-      app.innerHTML = '<div class="shell"><div class="wait-screen paper"><div class="kicker">Dictamen enviado</div>' +
-        '<h2 class="serif" style="color:var(--ink)">El profe y las ayudantes están leyendo</h2>' +
-        '<p class="muted">Todavía no se devela si acertaron.</p></div></div>';
-      return;
-    }
-
-    app.innerHTML = '<div class="shell"><div class="topbar"><div class="brand"><b>' + escapeHtml(teamName) + "</b></div>" +
-      '<div class="pill" style="font-size:28px;padding:4px 14px" id="live-timer">' + live + "</div></div>" +
-      '<div class="paper"><div class="kicker">' + escapeHtml(act.titulo) + '</div><div class="qbox"><b>' + escapeHtml(typeDef.promptLabel) + "</b><br>" + escapeHtml(caso.pregunta) + "</div>" +
-      '<p class="fragment">' + escapeHtml(caso.fragmento) + "</p></div>" +
-      '<div class="paper" style="margin-top:12px"><label>' + escapeHtml(typeDef.decisionLabel) + '</label><div class="stamp-row">' +
-      typeDef.sellos.map((s) => '<button type="button" class="stamp ' + (mine.sello === s.id ? "on-" + s.id : "") + ' js-sello" data-id="' + s.id + '">' + s.label + "</button>").join("") +
-      '</div><label style="margin-top:14px">Por qué</label>' +
-      '<textarea id="porque" placeholder="Escriban su respuesta. Si se congela el tiempo, se manda así como esté."></textarea>' +
-      '<div class="row" style="margin-top:10px"><button class="btn gold" id="send">Enviar dictamen</button>' +
-      '<span class="muted" id="sent-flag">' + (mine.sent ? "Ya hay un envío. Pueden seguir editando hasta que cierre el tiempo." : "Puede enviar una o todas.") + "</span></div></div></div>";
-
-    const push = (submit) => {
-      const area = document.getElementById("porque");
-      mine.porque = area ? area.value : mine.porque;
-      if (submit) mine.sent = true;
-      Sync.sendToHost({ type: submit ? "submit" : "draft", teamId: this.player.teamId, payload: { sello: mine.sello, porque: mine.porque } });
-    };
-    document.querySelectorAll(".js-sello").forEach((b) => {
-      b.onclick = () => {
-        mine.sello = b.dataset.id;
-        document.querySelectorAll(".js-sello").forEach((x) => { x.className = "stamp js-sello"; });
-        b.className = "stamp js-sello on-" + b.dataset.id;
-        push(false);
-      };
-    });
-    const area = document.getElementById("porque");
-    let t = null;
-    area.addEventListener("input", () => {
-      clearTimeout(t);
-      t = setTimeout(() => push(false), 150);
-    });
-    document.getElementById("send").onclick = () => {
-      push(true);
-      document.getElementById("sent-flag").textContent = "Enviado. Pueden seguir editando hasta que cierre el tiempo.";
-    };
+    U.error = ""; U.pantalla = "partida"; return render();
   }
-};
 
-window.addEventListener("hashchange", () => App.route());
-App.route();
+  // --- armado de la partida ---
+  if (a === "tipo") { cfg.tipo = b.dataset.t; cfg.elegidos = []; return render(); }
+  if (a === "tiempo") { cfg.segundos = Number(b.dataset.s); return render(); }
+  if (a === "elegir") {
+    const id = b.dataset.f;
+    cfg.elegidos = cfg.elegidos.includes(id) ? cfg.elegidos.filter((x) => x !== id) : [...cfg.elegidos, id];
+    return render();
+  }
+  if (a === "nuevo-frag") { U.tipoNuevo = cfg.tipo; U.nuevo = { titulo: "", pregunta: "", texto: "" }; return render(); }
+  if (a === "cancelar-frag") { U.tipoNuevo = null; return render(); }
+  if (a === "guardar-frag") {
+    if (!U.nuevo.texto.trim()) return;
+    const f = { id: uid(), tipo: cfg.tipo, titulo: U.nuevo.titulo.trim() || "Fragmento sin título",
+                pregunta: U.nuevo.pregunta.trim(), texto: U.nuevo.texto.trim() };
+    BIBLIOTECA.push(f); cfg.elegidos.push(f.id); U.tipoNuevo = null;
+    return render();
+  }
+  if (a === "crear") return crearPartida();
 
-  </script>
+  // --- control de la partida ---
+  if (a === "iniciar") return iniciarRonda();
+  if (a === "cortar") return cerrarRonda();
+  if (a === "revelar") { P.fase = "revelado"; return render(); }
+  if (a === "siguiente") return siguienteRonda();
+  if (a === "puntuar") { puntajesRonda()[b.dataset.eq] = Number(b.dataset.n); return render(); }
+
+  // --- estudiante ---
+  if (a === "opcion") {
+    const r = (respuestasRonda()[U.miEquipo] ||= { opcion: null, justificacion: "", enviada: false });
+    if (r.enviada) return;
+    r.opcion = b.dataset.o;
+    return render();
+  }
+  if (a === "enviar") {
+    const r = respuestasRonda()[U.miEquipo];
+    if (!r || !r.opcion) return;
+    r.enviada = true;
+    return render();
+  }
+
+  // --- barra de demo (solo Etapa 1) ---
+  if (a === "rol") { U.rol = b.dataset.r; return render(); }
+  if (a === "reset") { limpiarTimers(); P = null; U = { ...U, pantalla: "home", rol: null, error: "", modoStaff: false, codigoDraft: "" }; return render(); }
+});
+
+// Lo que se escribe se guarda sin volver a dibujar la pantalla, para no
+// perder el teclado ni el cursor mientras se tipea.
+document.addEventListener("input", (ev) => {
+  const id = ev.target.id, v = ev.target.value;
+  if (id === "codigo") U.codigoDraft = v;
+  else if (id === "pin") U.pinDraft = v;
+  else if (id === "n-titulo") U.nuevo.titulo = v;
+  else if (id === "n-pregunta") U.nuevo.pregunta = v;
+  else if (id === "n-texto") U.nuevo.texto = v;
+  else if (id === "justi") {
+    const r = (respuestasRonda()[U.miEquipo] ||= { opcion: null, justificacion: "", enviada: false });
+    if (!r.enviada) r.justificacion = v;
+  }
+});
+
+render();
+</script>
 </body>
 </html>
