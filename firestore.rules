@@ -29,15 +29,22 @@ service cloud.firestore {
     }
 
     match /salas/{cod} {
+      /* Todo lo que consulta otro documento se pregunta primero si existe.
+         Sin ese cuidado, leer algo de una sala ya cerrada no responde "no
+         tenés permiso" sino que falla con error, y la aplicación se entera
+         tarde y mal. */
+      function salaExiste() { return exists(/databases/$(db)/documents/salas/$(cod)); }
       function sala() { return get(/databases/$(db)/documents/salas/$(cod)).data; }
-      function esCreador() { return firmada() && sala().creador == yo(); }
+      function esCreador() { return firmada() && salaExiste() && sala().creador == yo(); }
       function esStaff() {
-        return esCreador() || exists(/databases/$(db)/documents/salas/$(cod)/staff/$(yo()));
+        return esCreador() || (firmada() && exists(/databases/$(db)/documents/salas/$(cod)/staff/$(yo())));
       }
       function miEquipo() {
-        return get(/databases/$(db)/documents/salas/$(cod)/jugadores/$(yo())).data.equipoId;
+        return exists(/databases/$(db)/documents/salas/$(cod)/jugadores/$(yo()))
+          ? get(/databases/$(db)/documents/salas/$(cod)/jugadores/$(yo())).data.equipoId
+          : "";
       }
-      function fase() { return sala().fase; }
+      function fase() { return salaExiste() ? sala().fase : ""; }
 
       // La partida la lee cualquiera que tenga el código; el ritmo lo cambia
       // solo quien la creó o cátedra.
@@ -60,7 +67,7 @@ service cloud.firestore {
         allow create: if firmada() && uid == yo()
                       && request.resource.data.pin ==
                          get(/databases/$(db)/documents/salas/$(cod)/privado/acceso).data.pin;
-        allow delete: if firmada() && uid == yo();
+        allow delete: if firmada() && (uid == yo() || esCreador());
       }
 
       // Cada persona escribe su propia ficha. Declararse cátedra exige haber
@@ -78,7 +85,9 @@ service cloud.firestore {
       match /respuestas/{id} {
         function mia() { return request.resource.data.equipoId == miEquipo(); }
         function breve() { return request.resource.data.justificacion.size() <= 2000; }
-        allow read: if firmada();
+        // Cada equipo lee solo la suya; cátedra lee todas. Así no se puede
+        // espiar lo que contestó otro equipo durante la ronda.
+        allow read: if firmada() && (esStaff() || resource.data.equipoId == miEquipo());
         allow create: if firmada() && breve()
                       && (esStaff() || (mia() && fase() in ['ronda', 'puntuando']));
         allow update: if firmada() && breve()

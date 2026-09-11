@@ -27,7 +27,16 @@ Funciona en dos modalidades, según haya o no configuración de base de datos:
 - Las tres interfaces en las cinco fases, sincronizadas entre dispositivos
 - Cronómetro con envío automático de la respuesta al vencer el tiempo
 - Puntajes +2 / +1 / 0, ranking acumulado y varias rondas seguidas
-- Reingreso automático: quien recarga vuelve a su partida y a su equipo
+- Reingreso automático: quien recarga vuelve a su partida y a su equipo; la
+  sesión caduca a las seis horas, para que la clase siguiente arranque limpia
+- Los equipos sin nadie no participan: no esperan respuesta ni frenan el
+  puntaje, aunque la partida se haya armado para más equipos que los que vinieron
+- El cronómetro se cuenta contra la hora del servidor, no la del celular, así
+  un teléfono desajustado no ve otro número; quien entra a mitad de la ronda
+  recibe el tiempo que queda
+- Si el dispositivo de quien dicta la clase se apaga, cátedra cierra la ronda
+  cuatro segundos después: la ronda no queda colgada
+- Toda escritura que falla avisa en pantalla, y hay un aviso de "sin conexión"
 
 ## Cómo se pone en marcha
 
@@ -51,15 +60,14 @@ alcanza para lo que importa, y está verificado contra el emulador:
 - el PIN no está en ningún documento que se pueda leer, y declararse cátedra
   exige haberlo presentado.
 
-Dos límites conocidos, por no haber cuentas:
+Cada equipo lee únicamente su propia respuesta: no hay forma de espiar la de
+otro equipo durante la ronda, ni desde la pantalla ni desde las herramientas
+del navegador. Cátedra las lee todas.
 
-- Las respuestas de la ronda son legibles por cualquiera que esté en la
-  sala. En la pantalla nadie ve las de los demás antes de la revelación,
-  pero alguien con herramientas de desarrollo podría. Se cierra haciendo que
-  cada equipo escuche solo su propia respuesta hasta que se revele.
-- La biblioteca y los criterios los puede editar cualquier dispositivo que
-  haya entrado a una partida. Se cierra con una clave de cátedra, con el
-  mismo mecanismo que usa el PIN de sala.
+Queda un límite conocido, por no haber cuentas: la biblioteca y los criterios
+los puede editar cualquier dispositivo que haya entrado a una partida. Se
+cierra con una clave de cátedra, con el mismo mecanismo que usa el PIN de
+sala, si alguna vez hace falta.
 
 Para desarrollo, `?emulador=1` conecta contra un Firestore local
 (`firebase emulators:start --only firestore,auth`) sin necesidad de cuenta.
