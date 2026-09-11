@@ -1,0 +1,96 @@
+rules_version = '2';
+
+/* Reglas de seguridad de Dictamen.
+   Se pegan en la consola de Firebase, en Firestore Database → Reglas.
+
+   Nadie tiene cuenta: cada dispositivo recibe una identidad anónima. Con eso
+   alcanza para lo que importa:
+     · el puntaje lo escribe solo cátedra,
+     · cada equipo escribe solo su propia respuesta,
+     · el ritmo de la partida lo maneja solo quien la creó o cátedra,
+     · el PIN no está en ningún documento que se pueda leer.
+*/
+
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function firmada() { return request.auth != null; }
+    function yo() { return request.auth.uid; }
+
+    // Biblioteca de fragmentos y criterios de puntaje: los comparte la cátedra.
+    // Cualquier dispositivo que entró a una partida puede leerlos y editarlos.
+    match /biblioteca/{id} {
+      allow read: if firmada();
+      allow write: if firmada();
+    }
+    match /config/{id} {
+      allow read: if firmada();
+      allow write: if firmada();
+    }
+
+    match /salas/{cod} {
+      function sala() { return get(/databases/$(db)/documents/salas/$(cod)).data; }
+      function esCreador() { return firmada() && sala().creador == yo(); }
+      function esStaff() {
+        return esCreador() || exists(/databases/$(db)/documents/salas/$(cod)/staff/$(yo()));
+      }
+      function miEquipo() {
+        return get(/databases/$(db)/documents/salas/$(cod)/jugadores/$(yo())).data.equipoId;
+      }
+      function fase() { return sala().fase; }
+
+      // La partida la lee cualquiera que tenga el código; el ritmo lo cambia
+      // solo quien la creó o cátedra.
+      allow read: if firmada();
+      allow create: if firmada()
+                    && request.resource.data.creador == yo()
+                    && request.resource.data.codigo == cod;
+      allow update: if esStaff();
+      allow delete: if esCreador();
+
+      // El PIN vive acá y no lo lee nadie más que quien creó la partida.
+      match /privado/{doc} {
+        allow read, write: if esCreador();
+      }
+
+      // Prueba de que alguien conoce el PIN. No se puede leer: solo crear, y
+      // únicamente si el PIN presentado coincide con el guardado.
+      match /staff/{uid} {
+        allow read: if false;
+        allow create: if firmada() && uid == yo()
+                      && request.resource.data.pin ==
+                         get(/databases/$(db)/documents/salas/$(cod)/privado/acceso).data.pin;
+        allow delete: if firmada() && uid == yo();
+      }
+
+      // Cada persona escribe su propia ficha. Declararse cátedra exige haber
+      // presentado el PIN.
+      match /jugadores/{uid} {
+        allow read: if firmada();
+        allow create, update: if firmada() && uid == yo()
+                             && (request.resource.data.rol != 'catedra' || esStaff());
+        allow delete: if firmada() && (uid == yo() || esStaff());
+      }
+
+      // Un equipo escribe su respuesta y ninguna otra, y solo mientras la
+      // ronda está abierta. Se admite crearla durante la puntuación para que
+      // un envío automático que llegó tarde no se pierda, pero no cambiarla.
+      match /respuestas/{id} {
+        function mia() { return request.resource.data.equipoId == miEquipo(); }
+        function breve() { return request.resource.data.justificacion.size() <= 2000; }
+        allow read: if firmada();
+        allow create: if firmada() && breve()
+                      && (esStaff() || (mia() && fase() in ['ronda', 'puntuando']));
+        allow update: if firmada() && breve()
+                      && (esStaff() || (mia() && fase() == 'ronda'));
+        allow delete: if esStaff();
+      }
+
+      // El puntaje es de cátedra. Nadie más lo escribe.
+      match /puntajes/{id} {
+        allow read: if firmada();
+        allow write: if esStaff();
+      }
+    }
+  }
+}
