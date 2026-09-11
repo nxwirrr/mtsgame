@@ -451,12 +451,12 @@ const NOMBRES_DEMO = ["Ana","Belén","Cami","Dana","Euge","Flor","Guada","Ine","
    Apenas se completen, la misma app pasa a MODO NUBE y se sincroniza entre
    celulares sin cambiar ninguna pantalla. */
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyB3U9QtjpK7h5vtiYjiWB1exJ_LWTiLayI",
-  authDomain: "dictamen-catedra-575b8.firebaseapp.com",
-  projectId: "dictamen-catedra-575b8",
-  storageBucket: "dictamen-catedra-575b8.firebasestorage.app",
-  messagingSenderId: "15348314574",
-  appId: "1:15348314574:web:b98f4ec19d08bc26977b9f"
+  apiKey: "AIzaSyAfYfmGnRi3PWa4JWSnupMT0HbQelcdwmI",
+  authDomain: "dictamen-catedra.firebaseapp.com",
+  projectId: "dictamen-catedra",
+  storageBucket: "dictamen-catedra.firebasestorage.app",
+  messagingSenderId: "229627652557",
+  appId: "1:229627652557:web:68c2a856407dcc75f1bc84"
 };
 
 // Enganche de desarrollo: con ?emulador=1 se conecta al Firestore de prueba
@@ -1757,7 +1757,18 @@ nubeLista = (MODO_NUBE
       U.nubeCaida = true;
     })
   : Promise.resolve()
-).then(() => Promise.all([cargarBiblioteca(), cargarTipos(), reconectar()])).then(render);
+)
+  .then(() => Promise.all([cargarBiblioteca(), cargarTipos(), reconectar()]))
+  .catch((e) => {
+    /* La identidad anónima puede funcionar y la base no responder: cuenta
+       sin crear, reglas, o un corte. Sin esto la aplicación se creía
+       conectada y no guardaba nada. */
+    console.error("La base de datos no respondió al arrancar:", e);
+    MODO_NUBE = false;
+    U.nubeCaida = true;
+    return cargarBiblioteca().catch(() => {});
+  })
+  .then(render);
 </script>
 </body>
 </html>
