@@ -1601,11 +1601,16 @@ function render() {
 }
 
 function renderDemobar() {
+  const barra = $("#demobar");
   if (MODO_NUBE) {                       // con base de datos compartida no hace falta
     document.documentElement.style.setProperty("--bar", "0px");
-    $("#demobar").style.display = "none";
+    barra.style.display = "none";
     return;
   }
+  /* Volver a mostrarla importa: si la app arrancó apuntando a la nube y no
+     pudo conectarse, queda en modo demo y necesita la barra de nuevo. */
+  document.documentElement.style.removeProperty("--bar");
+  barra.style.display = "";
   const roles = [["docente", "Docente"], ["catedra", "Cátedra"], ["estudiante", "Estudiante"]];
   $("#demobar").innerHTML = !P || U.pantalla !== "partida"
     ? `<span class="lbl" style="max-width:none">Modo demostración · una sola pantalla</span>`
