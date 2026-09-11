@@ -352,8 +352,10 @@ const OPCIONES = [
 ];
 const opcionPorId = (id) => OPCIONES.find((o) => o.id === id) || null;
 
-// Criterios PROVISORIOS. En la Etapa 7 se editan desde la app, no desde acá.
-const TIPOS = {
+/* Punto de partida de los tres tipos de actividad. Cada cátedra los edita
+   desde la propia aplicación (pantalla "Criterios de puntaje"); lo editado
+   se guarda y reemplaza a estos valores. */
+const TIPOS_BASE = {
   fragmento: {
     nombre: "Evaluación de fragmento",
     corto: "Fragmento",
@@ -385,7 +387,15 @@ const TIPOS = {
     }
   }
 };
-const TIPO_IDS = Object.keys(TIPOS);
+const TIPO_IDS = Object.keys(TIPOS_BASE);
+const LLAVE_TIPOS = "dictamen-tipos";
+const clonar = (o) => JSON.parse(JSON.stringify(o));
+let TIPOS = clonar(TIPOS_BASE);
+
+// Cada partida se lleva una copia del criterio: si alguien lo edita en medio
+// de una clase, la partida en curso no cambia de reglas a mitad de camino.
+const criterioDe = (partida) => partida?.criterio || TIPOS[partida?.tipo]?.criterio || TIPOS_BASE.fragmento.criterio;
+const nombreTipoDe = (partida) => partida?.tipoNombre || TIPOS[partida?.tipo]?.nombre || "Actividad";
 
 /* La biblioteca se guarda: en la nube, en la colección "biblioteca"; sin
    nube, en el propio navegador. Así los fragmentos se reusan clase a clase.
@@ -525,6 +535,42 @@ async function sumarmeALaSala(codigo, rol, nombre, cuantosEquipos = 4) {
   return equipoId;
 }
 
+/* --------------------------------------------------- CRITERIOS Y TIPOS --- */
+
+async function cargarTipos() {
+  let guardado = null;
+  if (MODO_NUBE && db) {
+    const d = await window.FB.getDoc(window.FB.doc(db, "config", "tipos"));
+    guardado = d.exists() ? d.data() : null;
+  } else {
+    try { guardado = JSON.parse(localStorage.getItem(LLAVE_TIPOS) || "null"); } catch (e) {}
+  }
+  TIPOS = clonar(TIPOS_BASE);
+  if (!guardado) return;
+  TIPO_IDS.forEach((t) => {
+    const g = guardado[t];
+    if (!g) return;
+    if (g.nombre) TIPOS[t].nombre = g.nombre;
+    if (g.corto) TIPOS[t].corto = g.corto;
+    if (g.consigna) TIPOS[t].consigna = g.consigna;
+    if (g.criterio) [2, 1, 0].forEach((n) => {
+      if (g.criterio[n]) TIPOS[t].criterio[n] = g.criterio[n];
+    });
+  });
+}
+
+async function guardarTipos() {
+  const paraGuardar = {};
+  TIPO_IDS.forEach((t) => {
+    paraGuardar[t] = {
+      nombre: TIPOS[t].nombre, corto: TIPOS[t].corto, consigna: TIPOS[t].consigna,
+      criterio: { 2: TIPOS[t].criterio[2], 1: TIPOS[t].criterio[1], 0: TIPOS[t].criterio[0] }
+    };
+  });
+  if (MODO_NUBE && db) await window.FB.setDoc(window.FB.doc(db, "config", "tipos"), paraGuardar);
+  else { try { localStorage.setItem(LLAVE_TIPOS, JSON.stringify(paraGuardar)); } catch (e) {} }
+}
+
 /* ---------------------------------------------------------- BIBLIOTECA --- */
 
 async function cargarBiblioteca() {
@@ -638,6 +684,8 @@ async function crearPartida() {
     codigo: codigoSala(),
     pin: String(1000 + azar(9000)),
     tipo: cfg.tipo,
+    tipoNombre: TIPOS[cfg.tipo].nombre,
+    criterio: clonar(TIPOS[cfg.tipo].criterio),
     segundos: cfg.segundos,
     cantidadEquipos: cfg.equipos,
     rondas,
@@ -797,7 +845,7 @@ function fragmentoHTML(f, conPregunta = true) {
   if (!f) return `<div class="card"><p class="muted">Sin fragmento cargado.</p></div>`;
   return `<div class="card stack">
     <div>
-      <p class="kicker">${esc(TIPOS[P.tipo].nombre)}</p>
+      <p class="kicker">${esc(nombreTipoDe(P))}</p>
       <h2>${esc(f.titulo)}</h2>
     </div>
     ${conPregunta && f.pregunta ? `<div class="pregunta">
@@ -826,12 +874,12 @@ function rankingHTML(destacarMio) {
 }
 
 function panelPuntaje(editable) {
-  const crit = TIPOS[P.tipo].criterio;
+  const crit = criterioDe(P);
   const pts = puntajesRonda();
   return `
   <div class="card stack">
     <div>
-      <p class="kicker">Criterio · ${esc(TIPOS[P.tipo].nombre)}</p>
+      <p class="kicker">Criterio · ${esc(nombreTipoDe(P))}</p>
       <div class="stack-sm" style="margin-top:6px">
         ${[2,1,0].map((n) => `<p class="muted"><b style="color:var(--ink)">+${n}</b> · ${esc(crit[n])}</p>`).join("")}
       </div>
@@ -957,6 +1005,10 @@ function vistaCrear() {
         </div>
         <p class="muted" style="margin-top:8px">${esc(TIPOS[cfg.tipo].nombre)} · ${esc(TIPOS[cfg.tipo].consigna)}</p>
       </div>
+      <div class="row">
+        <span class="spacer"></span>
+        <button class="btn sm soft" data-a="ir-criterios">Criterios de puntaje</button>
+      </div>
     </div>
 
     <div class="card stack">
@@ -1002,6 +1054,45 @@ function vistaCrear() {
     <button class="btn docente" data-a="crear" ${cfg.elegidos.length ? "" : "disabled"}>
       Crear partida · ${cfg.elegidos.length} ronda${cfg.elegidos.length === 1 ? "" : "s"}
     </button>
+  </div>`;
+}
+
+function vistaCriterios() {
+  const t = TIPOS[cfg.tipo];
+  return `<div class="screen">
+    <div class="topbar">
+      <span class="rolechip docente"><i class="dot"></i>Docente</span>
+      <button class="btn link" data-a="ir-crear">Volver</button>
+    </div>
+
+    <div>
+      <h1>Criterios de puntaje</h1>
+      <p class="lead" style="margin-top:6px">Lo que cátedra lee al asignar +2, +1 o 0. Cambia por tipo de actividad.</p>
+    </div>
+
+    <div class="card stack">
+      <div>
+        <span class="label">Tipo de actividad</span>
+        <div class="seg">
+          ${TIPO_IDS.map((id) => `<button data-a="tipo" data-t="${id}" aria-pressed="${cfg.tipo === id}">${esc(TIPOS[id].corto)}</button>`).join("")}
+        </div>
+      </div>
+      <label class="field"><span class="label">Nombre</span>
+        <input type="text" id="c-nombre" value="${esc(t.nombre)}" /></label>
+      <label class="field"><span class="label">Consigna breve</span>
+        <input type="text" id="c-consigna" value="${esc(t.consigna)}" /></label>
+    </div>
+
+    ${[2, 1, 0].map((n) => `<label class="field card">
+      <span class="label">Amerita +${n}</span>
+      <textarea id="c-${n}" style="min-height:88px">${esc(t.criterio[n])}</textarea>
+    </label>`).join("")}
+
+    <button class="btn docente" data-a="guardar-criterios">Guardar criterios</button>
+    <button class="btn link" data-a="restaurar-criterios">Volver a los criterios de ejemplo de ${esc(t.corto)}</button>
+    <p class="muted" style="text-align:center">${MODO_NUBE
+      ? "Se guardan para toda la cátedra."
+      : "Se guardan en este navegador. Con base de datos, quedan para toda la cátedra."}</p>
   </div>`;
 }
 
@@ -1063,7 +1154,7 @@ function vistaDocente() {
 
     fin: () => `
       <div class="card stack"><h1>Partida terminada</h1>
-        <p class="lead">${P.rondas.length} ronda${P.rondas.length === 1 ? "" : "s"} · ${esc(TIPOS[P.tipo].nombre)}</p></div>
+        <p class="lead">${P.rondas.length} ronda${P.rondas.length === 1 ? "" : "s"} · ${esc(nombreTipoDe(P))}</p></div>
       ${rankingHTML(false)}
       <button class="btn ghost" data-a="home">Volver al inicio</button>`
   }[P.fase]();
@@ -1162,7 +1253,7 @@ function vistaEstudiante() {
       <div class="card stack" style="text-align:center">
         <p class="kicker">Ronda ${P.rondaIndex + 1} · ${esc(eq.nombre)}</p>
         <h1 style="font-size:52px">+${pts ?? 0}</h1>
-        <p class="lead">${esc(TIPOS[P.tipo].criterio[pts ?? 0])}</p>
+        <p class="lead">${esc(criterioDe(P)[pts ?? 0] || "")}</p>
       </div>
       ${rankingHTML(true)}
       ${esperando("Esperando", "Quien dicta la clase avanza a la ronda siguiente.")}`,
@@ -1228,7 +1319,8 @@ function render() {
   const foco = activo && activo.id ? { id: activo.id, pos: activo.selectionStart } : null;
 
   let html;
-  if (U.pantalla === "crear") html = vistaCrear();
+  if (U.pantalla === "criterios") html = vistaCriterios();
+  else if (U.pantalla === "crear") html = vistaCrear();
   else if (U.pantalla === "home" || !P) html = vistaHome();
   else html = { docente: vistaDocente, catedra: vistaCatedra, estudiante: vistaEstudiante }[U.rol]();
   $("#app").innerHTML = html;
@@ -1274,7 +1366,11 @@ document.addEventListener("click", (ev) => {
   if (a === "entrar") return entrar();
 
   // --- armado de la partida ---
-  if (a === "tipo") { cfg.tipo = b.dataset.t; cfg.elegidos = []; return render(); }
+  if (a === "tipo") {
+    cfg.tipo = b.dataset.t;
+    if (U.pantalla !== "criterios") cfg.elegidos = [];
+    return render();
+  }
   if (a === "tiempo") { cfg.segundos = Number(b.dataset.s); return render(); }
   if (a === "elegir") {
     const id = b.dataset.f;
@@ -1282,6 +1378,16 @@ document.addEventListener("click", (ev) => {
     return render();
   }
   if (a === "equipos") { cfg.equipos = Number(b.dataset.n); return render(); }
+  if (a === "ir-criterios") { U.pantalla = "criterios"; U.editando = null; return render(); }
+  if (a === "guardar-criterios") {
+    U.pantalla = "crear"; render();
+    return guardarTipos();
+  }
+  if (a === "restaurar-criterios") {
+    TIPOS[cfg.tipo] = clonar(TIPOS_BASE[cfg.tipo]);
+    render();
+    return guardarTipos();
+  }
   if (a === "nuevo-frag") {
     U.editando = "nuevo"; U.nuevo = { titulo: "", pregunta: "", texto: "" };
     return render();
@@ -1347,6 +1453,11 @@ document.addEventListener("input", (ev) => {
   else if (id === "n-pregunta") U.nuevo.pregunta = v;
   else if (id === "n-texto") U.nuevo.texto = v;
   else if (id === "nombre") U.nombreDraft = v;
+  else if (id === "c-nombre") TIPOS[cfg.tipo].nombre = v;
+  else if (id === "c-consigna") TIPOS[cfg.tipo].consigna = v;
+  else if (id === "c-2") TIPOS[cfg.tipo].criterio[2] = v;
+  else if (id === "c-1") TIPOS[cfg.tipo].criterio[1] = v;
+  else if (id === "c-0") TIPOS[cfg.tipo].criterio[0] = v;
   else if (id === "justi") U.borrador.justificacion = v;
 });
 
@@ -1359,7 +1470,7 @@ nubeLista = (MODO_NUBE
       MODO_NUBE = false;               // seguimos en modo demo antes que romper
     })
   : Promise.resolve()
-).then(cargarBiblioteca).then(render);
+).then(() => Promise.all([cargarBiblioteca(), cargarTipos()])).then(render);
 </script>
 </body>
 </html>
