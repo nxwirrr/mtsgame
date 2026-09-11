@@ -14,11 +14,11 @@
   import { initializeAuth, browserLocalPersistence, signInAnonymously, connectAuthEmulator }
     from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
   import { getFirestore, connectFirestoreEmulator, doc, collection, query, where,
-           getDoc, getDocs, setDoc, updateDoc, onSnapshot }
+           getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot }
     from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
   window.FB = { initializeApp, initializeAuth, browserLocalPersistence, signInAnonymously,
                 connectAuthEmulator, getFirestore, connectFirestoreEmulator, doc, collection,
-                query, where, getDoc, getDocs, setDoc, updateDoc, onSnapshot };
+                query, where, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot };
   window.dispatchEvent(new Event("firebase-listo"));
 </script>
 <style>
@@ -289,6 +289,10 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--surface-2);padding:5px;border-radius:var(--r-md);border:1px solid var(--line)}
 .seg button{padding:10px 6px;border-radius:9px;font-weight:700;font-size:13px;color:var(--muted)}
 .seg button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:var(--shadow-sm)}
+.seg.seg-6{grid-template-columns:repeat(6,1fr)}
+.fila-frag{position:relative}
+.fila-frag .check{padding-right:74px}
+.fila-frag .editar{position:absolute;top:6px;right:8px;min-height:32px;font-size:13px;padding:0 6px}
 
 .aviso{
   display:flex;gap:10px;align-items:flex-start;
@@ -383,9 +387,10 @@ const TIPOS = {
 };
 const TIPO_IDS = Object.keys(TIPOS);
 
-// Biblioteca de fragmentos. En la Etapa 3 se guarda de verdad y se reusa
-// entre partidas; acá arranca con dos ejemplos para poder navegar.
-let BIBLIOTECA = [
+/* La biblioteca se guarda: en la nube, en la colección "biblioteca"; sin
+   nube, en el propio navegador. Así los fragmentos se reusan clase a clase.
+   Estos tres quedan cargados la primera vez, como ejemplos. */
+const SEMILLAS = [
   {
     id: "f1", tipo: "estado",
     titulo: "Representaciones sociales · versión lista",
@@ -405,6 +410,9 @@ let BIBLIOTECA = [
     texto: "Objetivo general: conocer la realidad de las maestras rurales de la provincia para mejorar su bienestar y aportar al sistema educativo."
   }
 ];
+
+const LLAVE_BIBLIOTECA = "dictamen-biblioteca";
+let BIBLIOTECA = [];
 
 const NOMBRES_DEMO = ["Ana","Belén","Cami","Dana","Euge","Flor","Guada","Ine","Juli","Ken","Lu","Mai","Nico","Orne","Pau","Rocío"];
 
@@ -433,7 +441,9 @@ let db = null, auth = null, miUid = null, nubeLista = null;
 let J = [];              // jugadores conectados a la sala
 let cortar = [];         // cómo dejar de escuchar la sala anterior
 
-const EQUIPOS_BASE = [1, 2, 3, 4].map((n) => ({ id: "e" + n, nombre: "Equipo " + n }));
+const equiposBase = (cuantos) =>
+  Array.from({ length: cuantos }, (_, i) => ({ id: "e" + (i + 1), nombre: "Equipo " + (i + 1) }));
+const equiposDe = (partida) => equiposBase(partida?.cantidadEquipos || 4);
 
 // La librería llega por su cuenta; si tarda demasiado seguimos sin ella.
 function esperarLibreria(ms = 10000) {
@@ -487,14 +497,14 @@ function escucharSala(codigo) {
 // Los equipos no se guardan: se deducen de quién está conectado.
 function recomponerEquipos() {
   if (!P || !MODO_NUBE) return;
-  P.equipos = EQUIPOS_BASE.map((e) => ({
+  P.equipos = equiposDe(P).map((e) => ({
     ...e,
     integrantes: J.filter((j) => j.rol === "estudiante" && j.equipoId === e.id).map((j) => j.nombre || "anónima")
   }));
 }
 
 // Sorteo: al equipo con menos gente. Si ya entré antes, vuelvo al mío.
-async function sumarmeALaSala(codigo, rol, nombre) {
+async function sumarmeALaSala(codigo, rol, nombre, cuantosEquipos = 4) {
   const FB = window.FB;
   const ref = refJugador(codigo, miUid);
   const mio = await FB.getDoc(ref);
@@ -506,12 +516,53 @@ async function sumarmeALaSala(codigo, rol, nombre) {
   if (rol === "estudiante") {
     const snap = await FB.getDocs(FB.query(refJugadores(codigo), FB.where("rol", "==", "estudiante")));
     const cuenta = {};
-    EQUIPOS_BASE.forEach((e) => (cuenta[e.id] = 0));
+    const equipos = equiposBase(cuantosEquipos);
+    equipos.forEach((e) => (cuenta[e.id] = 0));
     snap.forEach((d) => { const e = d.data().equipoId; if (e in cuenta) cuenta[e]++; });
-    equipoId = EQUIPOS_BASE.map((e) => e.id).sort((a, b) => cuenta[a] - cuenta[b])[0];
+    equipoId = equipos.map((e) => e.id).sort((a, b) => cuenta[a] - cuenta[b])[0];
   }
   await FB.setDoc(ref, { rol, nombre: nombre || "", equipoId, visto: Date.now() });
   return equipoId;
+}
+
+/* ---------------------------------------------------------- BIBLIOTECA --- */
+
+async function cargarBiblioteca() {
+  if (MODO_NUBE && db) {
+    const FB = window.FB;
+    const snap = await FB.getDocs(FB.collection(db, "biblioteca"));
+    BIBLIOTECA = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (!BIBLIOTECA.length) {          // primera vez: dejamos los ejemplos
+      await Promise.all(SEMILLAS.map((f) => FB.setDoc(FB.doc(db, "biblioteca", f.id), sinId(f))));
+      BIBLIOTECA = SEMILLAS.map((f) => ({ ...f }));
+    }
+    return;
+  }
+  try {
+    const guardado = JSON.parse(localStorage.getItem(LLAVE_BIBLIOTECA) || "null");
+    BIBLIOTECA = Array.isArray(guardado) && guardado.length ? guardado : SEMILLAS.map((f) => ({ ...f }));
+  } catch (e) {
+    BIBLIOTECA = SEMILLAS.map((f) => ({ ...f }));
+  }
+}
+
+const sinId = ({ id, ...resto }) => resto;
+function guardarBibliotecaLocal() {
+  try { localStorage.setItem(LLAVE_BIBLIOTECA, JSON.stringify(BIBLIOTECA)); } catch (e) {}
+}
+
+async function guardarFragmento(f) {
+  const i = BIBLIOTECA.findIndex((x) => x.id === f.id);
+  if (i >= 0) BIBLIOTECA[i] = f; else BIBLIOTECA.push(f);
+  if (MODO_NUBE && db) await window.FB.setDoc(window.FB.doc(db, "biblioteca", f.id), sinId(f));
+  else guardarBibliotecaLocal();
+}
+
+async function borrarFragmento(id) {
+  BIBLIOTECA = BIBLIOTECA.filter((f) => f.id !== id);
+  cfg.elegidos = cfg.elegidos.filter((x) => x !== id);
+  if (MODO_NUBE && db) await window.FB.deleteDoc(window.FB.doc(db, "biblioteca", id));
+  else guardarBibliotecaLocal();
 }
 
 /* Un único punto de escritura. En modo demo toca el objeto local; en modo
@@ -546,11 +597,11 @@ let U = {
   nombreDraft: "",
   borrador: { opcion: null, justificacion: "" },
   borradorDe: null,   // a qué ronda pertenece el borrador
-  tipoNuevo: null,    // formulario de fragmento nuevo abierto
+  editando: null,     // id del fragmento en edición, o "nuevo"
   nuevo: { titulo: "", pregunta: "", texto: "" }
 };
 
-let cfg = { tipo: "estado", segundos: 90, elegidos: [] };
+let cfg = { tipo: "estado", segundos: 90, equipos: 4, elegidos: [] };
 let tick = null;
 let demoTimers = [];
 
@@ -578,15 +629,17 @@ function limpiarTimers() {
 
 async function crearPartida() {
   if (nubeLista) await nubeLista;
-  const rondas = cfg.elegidos.map((id) => {
-    const f = BIBLIOTECA.find((x) => x.id === id);
-    return { titulo: f.titulo, pregunta: f.pregunta, texto: f.texto };
-  });
+  const rondas = cfg.elegidos
+    .map((id) => BIBLIOTECA.find((x) => x.id === id))
+    .filter(Boolean)
+    .map((f) => ({ titulo: f.titulo, pregunta: f.pregunta || "", texto: f.texto }));
+  if (!rondas.length) { U.error = "Elegí al menos un fragmento."; return render(); }
   const partida = {
     codigo: codigoSala(),
     pin: String(1000 + azar(9000)),
     tipo: cfg.tipo,
     segundos: cfg.segundos,
+    cantidadEquipos: cfg.equipos,
     rondas,
     rondaIndex: 0,
     fase: "lobby",              // lobby | ronda | puntuando | revelado | fin
@@ -597,7 +650,7 @@ async function crearPartida() {
 
   if (MODO_NUBE) {
     await window.FB.setDoc(refSala(partida.codigo), partida);
-    await sumarmeALaSala(partida.codigo, "docente", "");
+    await sumarmeALaSala(partida.codigo, "docente", "", partida.cantidadEquipos);
     U.rol = "docente";
     U.miEquipo = null;
     U.pantalla = "partida";
@@ -606,8 +659,9 @@ async function crearPartida() {
   }
 
   // Modo demo: equipos inventados para poder recorrer las pantallas.
-  partida.equipos = EQUIPOS_BASE.map((e) => ({ ...e, integrantes: [] }));
-  NOMBRES_DEMO.slice(0, 11).forEach((nom, i) => partida.equipos[i % 4].integrantes.push(nom));
+  partida.equipos = equiposDe(partida).map((e) => ({ ...e, integrantes: [] }));
+  const cuantos = partida.equipos.length;
+  NOMBRES_DEMO.slice(0, cuantos * 3 - 1).forEach((nom, i) => partida.equipos[i % cuantos].integrantes.push(nom));
   P = partida;
   U.rol = "docente";
   U.miEquipo = "e2";            // en la demo, "yo estudiante" soy del Equipo 2
@@ -865,6 +919,25 @@ function vistaHome() {
 
 function vistaCrear() {
   const lista = BIBLIOTECA.filter((f) => f.tipo === cfg.tipo);
+  const editado = U.editando && U.editando !== "nuevo" ? BIBLIOTECA.find((f) => f.id === U.editando) : null;
+
+  const formulario = `<div class="card flat stack">
+    <p class="kicker">${editado ? "Editar fragmento" : "Fragmento nuevo"}</p>
+    <label class="field"><span class="label">Título</span>
+      <input type="text" id="n-titulo" value="${esc(U.nuevo.titulo)}" placeholder="Caso 3 · ..." /></label>
+    <label class="field"><span class="label">Pregunta o consigna</span>
+      <input type="text" id="n-pregunta" value="${esc(U.nuevo.pregunta)}" placeholder="Opcional" /></label>
+    <label class="field"><span class="label">Texto del fragmento</span>
+      <textarea id="n-texto" placeholder="Pegá acá el párrafo...">${esc(U.nuevo.texto)}</textarea></label>
+    <div class="row">
+      <button class="btn sm soft" data-a="cancelar-frag">Cancelar</button>
+      <span class="spacer"></span>
+      <button class="btn sm docente" data-a="guardar-frag">Guardar</button>
+    </div>
+    ${editado ? `<button class="btn link" data-a="borrar-frag" data-f="${editado.id}"
+        style="color:var(--no)">Borrar este fragmento de la biblioteca</button>` : ""}
+  </div>`;
+
   return `<div class="screen">
     <div class="topbar">
       <span class="rolechip docente"><i class="dot"></i>Docente</span>
@@ -873,7 +946,7 @@ function vistaCrear() {
 
     <div>
       <h1>Armar partida</h1>
-      <p class="lead" style="margin-top:6px">Elegí el tipo de actividad y los fragmentos. Cada fragmento es una ronda.</p>
+      <p class="lead" style="margin-top:6px">Cada fragmento que elijas es una ronda.</p>
     </div>
 
     <div class="card stack">
@@ -888,42 +961,41 @@ function vistaCrear() {
 
     <div class="card stack">
       <div class="row">
-        <span class="label" style="margin:0">Fragmentos · ${cfg.elegidos.length} elegidos</span>
+        <span class="label" style="margin:0">Biblioteca · ${cfg.elegidos.length} elegido${cfg.elegidos.length === 1 ? "" : "s"}</span>
         <span class="spacer"></span>
-        <button class="btn sm soft" data-a="nuevo-frag">+ Nuevo</button>
+        ${U.editando ? "" : `<button class="btn sm soft" data-a="nuevo-frag">+ Nuevo</button>`}
       </div>
 
-      ${U.tipoNuevo ? `<div class="card flat stack">
-        <label class="field"><span class="label">Título</span>
-          <input type="text" id="n-titulo" value="${esc(U.nuevo.titulo)}" placeholder="Caso 3 · ..." /></label>
-        <label class="field"><span class="label">Pregunta / consigna</span>
-          <input type="text" id="n-pregunta" value="${esc(U.nuevo.pregunta)}" placeholder="Opcional" /></label>
-        <label class="field"><span class="label">Texto del fragmento</span>
-          <textarea id="n-texto" placeholder="Pegá acá el párrafo...">${esc(U.nuevo.texto)}</textarea></label>
-        <div class="row">
-          <button class="btn sm soft" data-a="cancelar-frag">Cancelar</button>
-          <span class="spacer"></span>
-          <button class="btn sm docente" data-a="guardar-frag">Guardar fragmento</button>
-        </div>
-      </div>` : ""}
+      ${U.editando ? formulario : ""}
 
       ${lista.length ? `<div class="stack-sm">${lista.map((f) => `
-        <button class="check" data-a="elegir" data-f="${f.id}" aria-pressed="${cfg.elegidos.includes(f.id)}">
-          <span class="box">${cfg.elegidos.includes(f.id) ? "✓" : ""}</span>
-          <span>
-            <span class="t">${esc(f.titulo)}</span>
-            <span class="d">${esc(f.texto)}</span>
-          </span>
-        </button>`).join("")}</div>`
+        <div class="fila-frag">
+          <button class="check" data-a="elegir" data-f="${f.id}" aria-pressed="${cfg.elegidos.includes(f.id)}">
+            <span class="box">${cfg.elegidos.includes(f.id) ? "✓" : ""}</span>
+            <span>
+              <span class="t">${esc(f.titulo)}</span>
+              <span class="d">${esc(f.texto)}</span>
+            </span>
+          </button>
+          <button class="btn link editar" data-a="editar-frag" data-f="${f.id}">Editar</button>
+        </div>`).join("")}</div>`
       : `<p class="muted">No hay fragmentos de este tipo todavía. Tocá <b>+ Nuevo</b> para agregar uno.</p>`}
+      <p class="muted" style="font-size:12px">Los fragmentos quedan guardados para las próximas clases.</p>
     </div>
 
     <div class="card stack">
       <div>
         <span class="label">Tiempo por ronda</span>
         <div class="seg">
-          ${[60, 90, 120].map((s) => `<button data-a="tiempo" data-s="${s}" aria-pressed="${cfg.segundos === s}">${s} s</button>`).join("")}
+          ${[60, 90, 120].map((n) => `<button data-a="tiempo" data-s="${n}" aria-pressed="${cfg.segundos === n}">${n} s</button>`).join("")}
         </div>
+      </div>
+      <div>
+        <span class="label">Cantidad de equipos</span>
+        <div class="seg seg-6">
+          ${[2, 3, 4, 5, 6, 8].map((n) => `<button data-a="equipos" data-n="${n}" aria-pressed="${cfg.equipos === n}">${n}</button>`).join("")}
+        </div>
+        <p class="muted" style="margin-top:8px">Quien entra se suma al equipo que tenga menos gente.</p>
       </div>
     </div>
 
@@ -948,7 +1020,8 @@ function vistaDocente() {
       <div class="card stack">
         <div class="row">
           <h3>Equipos</h3><span class="spacer"></span>
-          <span class="muted">${P.equipos.reduce((a, e) => a + e.integrantes.length, 0)} personas</span>
+          <span class="muted">${(() => { const n = P.equipos.reduce((a, e) => a + e.integrantes.length, 0);
+            return n + (n === 1 ? " persona" : " personas"); })()}</span>
         </div>
         <div class="list">${P.equipos.map((e) => `
           <div class="item">
@@ -1134,7 +1207,7 @@ async function entrar() {
     if (U.modoStaff && U.pinDraft.trim() !== sala.data().pin) { U.error = "PIN incorrecto."; return render(); }
 
     const rol = U.modoStaff ? "catedra" : "estudiante";
-    U.miEquipo = await sumarmeALaSala(cod, rol, U.nombreDraft.trim());
+    U.miEquipo = await sumarmeALaSala(cod, rol, U.nombreDraft.trim(), sala.data().cantidadEquipos || 4);
     U.rol = rol; U.error = ""; U.pantalla = "partida";
     escucharSala(cod);
     render();
@@ -1193,7 +1266,8 @@ document.addEventListener("click", (ev) => {
   if (a === "toggle-staff") { U.modoStaff = !U.modoStaff; U.error = ""; return render(); }
   if (a === "ir-crear") { U.pantalla = "crear"; U.error = ""; return render(); }
   if (a === "demo-rapida") {           // partida armada, para mostrar la idea sin configurar
-    cfg = { tipo: "estado", segundos: 90, elegidos: ["f1", "f2"] };
+    const ejemplos = BIBLIOTECA.filter((f) => f.tipo === "estado").slice(0, 2);
+    cfg = { tipo: "estado", segundos: 90, equipos: 4, elegidos: ejemplos.map((f) => f.id) };
     return crearPartida();
   }
   if (a === "home") { U.pantalla = "home"; U.rol = null; U.error = ""; U.modoStaff = false; return render(); }
@@ -1207,14 +1281,38 @@ document.addEventListener("click", (ev) => {
     cfg.elegidos = cfg.elegidos.includes(id) ? cfg.elegidos.filter((x) => x !== id) : [...cfg.elegidos, id];
     return render();
   }
-  if (a === "nuevo-frag") { U.tipoNuevo = cfg.tipo; U.nuevo = { titulo: "", pregunta: "", texto: "" }; return render(); }
-  if (a === "cancelar-frag") { U.tipoNuevo = null; return render(); }
-  if (a === "guardar-frag") {
-    if (!U.nuevo.texto.trim()) return;
-    const f = { id: uid(), tipo: cfg.tipo, titulo: U.nuevo.titulo.trim() || "Fragmento sin título",
-                pregunta: U.nuevo.pregunta.trim(), texto: U.nuevo.texto.trim() };
-    BIBLIOTECA.push(f); cfg.elegidos.push(f.id); U.tipoNuevo = null;
+  if (a === "equipos") { cfg.equipos = Number(b.dataset.n); return render(); }
+  if (a === "nuevo-frag") {
+    U.editando = "nuevo"; U.nuevo = { titulo: "", pregunta: "", texto: "" };
     return render();
+  }
+  if (a === "editar-frag") {
+    const f = BIBLIOTECA.find((x) => x.id === b.dataset.f);
+    if (!f) return;
+    U.editando = f.id;
+    U.nuevo = { titulo: f.titulo, pregunta: f.pregunta || "", texto: f.texto };
+    return render();
+  }
+  if (a === "cancelar-frag") { U.editando = null; return render(); }
+  if (a === "guardar-frag") {
+    if (!U.nuevo.texto.trim()) { U.error = ""; return; }
+    const nuevoId = U.editando === "nuevo";
+    const f = {
+      id: nuevoId ? uid() : U.editando,
+      tipo: cfg.tipo,
+      titulo: U.nuevo.titulo.trim() || "Fragmento sin título",
+      pregunta: U.nuevo.pregunta.trim(),
+      texto: U.nuevo.texto.trim()
+    };
+    U.editando = null;
+    if (nuevoId && !cfg.elegidos.includes(f.id)) cfg.elegidos.push(f.id);
+    render();                                  // no hacemos esperar a la persona
+    return guardarFragmento(f).then(render);
+  }
+  if (a === "borrar-frag") {
+    U.editando = null;
+    render();
+    return borrarFragmento(b.dataset.f).then(render);
   }
   if (a === "crear") return crearPartida();
 
@@ -1255,12 +1353,13 @@ document.addEventListener("input", (ev) => {
 // Se dibuja primero y se conecta después: nadie mira una pantalla en blanco
 // mientras el celular negocia con la red.
 render();
-if (MODO_NUBE) {
-  nubeLista = nubeIniciar().catch((e) => {
-    console.error("No se pudo conectar con la base de datos:", e);
-    MODO_NUBE = false;                 // seguimos en modo demo antes que romper
-  }).then(render);
-}
+nubeLista = (MODO_NUBE
+  ? nubeIniciar().catch((e) => {
+      console.error("No se pudo conectar con la base de datos:", e);
+      MODO_NUBE = false;               // seguimos en modo demo antes que romper
+    })
+  : Promise.resolve()
+).then(cargarBiblioteca).then(render);
 </script>
 </body>
 </html>
