@@ -451,12 +451,12 @@ const NOMBRES_DEMO = ["Ana","Belén","Cami","Dana","Euge","Flor","Guada","Ine","
    Apenas se completen, la misma app pasa a MODO NUBE y se sincroniza entre
    celulares sin cambiar ninguna pantalla. */
 const FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyB3U9QtjpK7h5vtiYjiWB1exJ_LWTiLayI",
+  authDomain: "dictamen-catedra-575b8.firebaseapp.com",
+  projectId: "dictamen-catedra-575b8",
+  storageBucket: "dictamen-catedra-575b8.firebasestorage.app",
+  messagingSenderId: "15348314574",
+  appId: "1:15348314574:web:b98f4ec19d08bc26977b9f"
 };
 
 // Enganche de desarrollo: con ?emulador=1 se conecta al Firestore de prueba
@@ -816,6 +816,7 @@ let U = {
   pin: "",            // solo en el dispositivo que creó la partida
   aviso: "",          // mensaje pasajero de error
   sinRed: typeof navigator !== "undefined" && navigator.onLine === false,
+  nubeCaida: false,   // hay configuración pero no se pudo conectar
   borrador: { opcion: null, justificacion: "" },
   borradorDe: null,   // a qué ronda pertenece el borrador
   editando: null,     // id del fragmento en edición, o "nuevo"
@@ -1587,6 +1588,8 @@ function render() {
   $("#app").innerHTML = html;
 
   $("#avisos").innerHTML =
+    (U.nubeCaida ? `<div class="toast problema">No pudimos conectarnos con la base de datos.
+      Esta partida <b>no se comparte</b> con otros celulares. Recargá la página para reintentar.</div>` : "") +
     (U.sinRed ? `<div class="toast red">Sin conexión. La partida se pone al día cuando vuelva internet.</div>` : "") +
     (U.aviso ? `<div class="toast problema">${esc(U.aviso)}</div>` : "");
 
@@ -1742,7 +1745,11 @@ render();
 nubeLista = (MODO_NUBE
   ? nubeIniciar().catch((e) => {
       console.error("No se pudo conectar con la base de datos:", e);
-      MODO_NUBE = false;               // seguimos en modo demo antes que romper
+      /* Sin nube la aplicación sigue funcionando, pero en un solo
+         dispositivo. Cuando hay configuración, eso NO puede pasar en
+         silencio: alguien creería estar jugando con el curso y estaría sola. */
+      MODO_NUBE = false;
+      U.nubeCaida = true;
     })
   : Promise.resolve()
 ).then(() => Promise.all([cargarBiblioteca(), cargarTipos(), reconectar()])).then(render);
