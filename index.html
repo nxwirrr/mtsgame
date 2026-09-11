@@ -389,6 +389,7 @@ const TIPOS_BASE = {
 };
 const TIPO_IDS = Object.keys(TIPOS_BASE);
 const LLAVE_TIPOS = "dictamen-tipos";
+const LLAVE_SESION = "dictamen-sesion";
 const clonar = (o) => JSON.parse(JSON.stringify(o));
 let TIPOS = clonar(TIPOS_BASE);
 
@@ -449,6 +450,8 @@ let MODO_NUBE = EMULADOR || !!FIREBASE_CONFIG.projectId;
 
 let db = null, auth = null, miUid = null, nubeLista = null;
 let J = [];              // jugadores conectados a la sala
+let R = {};              // respuestas: R["r0"]["e1"] = { opcion, justificacion, ... }
+let PT = {};             // puntajes:   PT["r0"]["e1"] = 2
 let cortar = [];         // cómo dejar de escuchar la sala anterior
 
 const equiposBase = (cuantos) =>
@@ -482,6 +485,10 @@ async function nubeIniciar() {
 }
 
 const refSala = (cod) => window.FB.doc(db, "salas", cod);
+const refPrivado = (cod) => window.FB.doc(db, "salas", cod, "privado", "acceso");
+const refStaff = (cod, uid) => window.FB.doc(db, "salas", cod, "staff", uid);
+const refRespuestas = (cod) => window.FB.collection(db, "salas", cod, "respuestas");
+const refPuntajes = (cod) => window.FB.collection(db, "salas", cod, "puntajes");
 const refJugadores = (cod) => window.FB.collection(db, "salas", cod, "jugadores");
 const refJugador = (cod, uid) => window.FB.doc(db, "salas", cod, "jugadores", uid);
 
@@ -500,6 +507,16 @@ function escucharSala(codigo) {
   cortar.push(window.FB.onSnapshot(refJugadores(codigo), (snap) => {
     J = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
     recomponerEquipos();
+    render();
+  }));
+  cortar.push(window.FB.onSnapshot(refRespuestas(codigo), (snap) => {
+    R = {};
+    snap.forEach((d) => { const x = d.data(); (R[x.ronda] ||= {})[x.equipoId] = x; });
+    render();
+  }));
+  cortar.push(window.FB.onSnapshot(refPuntajes(codigo), (snap) => {
+    PT = {};
+    snap.forEach((d) => { const x = d.data(); (PT[x.ronda] ||= {})[x.equipoId] = x.puntaje; });
     render();
   }));
 }
@@ -533,6 +550,41 @@ async function sumarmeALaSala(codigo, rol, nombre, cuantosEquipos = 4) {
   }
   await FB.setDoc(ref, { rol, nombre: nombre || "", equipoId, visto: Date.now() });
   return equipoId;
+}
+
+/* ------------------------------------------------------------- SESIÓN --- */
+
+/* Si a alguien se le cierra el navegador en medio de la clase, al volver a
+   abrir el enlace entra sola a la misma partida y al mismo equipo. */
+function recordarSesion(codigo, rol) {
+  try { localStorage.setItem(LLAVE_SESION, JSON.stringify({ codigo, rol, nombre: U.nombreDraft })); } catch (e) {}
+}
+function olvidarSesion() {
+  try { localStorage.removeItem(LLAVE_SESION); } catch (e) {}
+}
+
+async function reconectar() {
+  if (!MODO_NUBE || !db) return;
+  let guardada = null;
+  try { guardada = JSON.parse(localStorage.getItem(LLAVE_SESION) || "null"); } catch (e) {}
+  if (!guardada || !guardada.codigo) return;
+  try {
+    const sala = await window.FB.getDoc(refSala(guardada.codigo));
+    if (!sala.exists()) return olvidarSesion();
+    const mio = await window.FB.getDoc(refJugador(guardada.codigo, miUid));
+    if (!mio.exists()) return olvidarSesion();
+    U.rol = mio.data().rol || guardada.rol;
+    U.miEquipo = mio.data().equipoId || null;
+    U.nombreDraft = mio.data().nombre || "";
+    U.pantalla = "partida";
+    if (sala.data().creador === miUid) {
+      const priv = await window.FB.getDoc(refPrivado(guardada.codigo));
+      if (priv.exists()) U.pin = priv.data().pin;
+    }
+    escucharSala(guardada.codigo);
+  } catch (e) {
+    olvidarSesion();
+  }
 }
 
 /* --------------------------------------------------- CRITERIOS Y TIPOS --- */
@@ -611,7 +663,31 @@ async function borrarFragmento(id) {
   else guardarBibliotecaLocal();
 }
 
-/* Un único punto de escritura. En modo demo toca el objeto local; en modo
+/* Respuestas y puntajes viven en documentos aparte, uno por equipo y por
+   ronda. Así las reglas de seguridad pueden decir "cada equipo escribe solo
+   su respuesta" y "el puntaje lo escribe solo cátedra", algo imposible si
+   todo estuviera en el mismo documento. */
+function guardarRespuesta(equipoId, datos) {
+  const k = claveRonda();
+  if (MODO_NUBE && db && P) {
+    return window.FB.setDoc(window.FB.doc(refRespuestas(P.codigo), k + "_" + equipoId),
+      { ronda: k, equipoId, ...datos });
+  }
+  (R[k] ||= {})[equipoId] = { ronda: k, equipoId, ...datos };
+  render();
+}
+
+function guardarPuntaje(equipoId, puntaje) {
+  const k = claveRonda();
+  if (MODO_NUBE && db && P) {
+    return window.FB.setDoc(window.FB.doc(refPuntajes(P.codigo), k + "_" + equipoId),
+      { ronda: k, equipoId, puntaje });
+  }
+  (PT[k] ||= {})[equipoId] = puntaje;
+  render();
+}
+
+/* Un único punto de escritura para el estado de la partida. En modo demo toca el objeto local; en modo
    nube manda el cambio a Firestore y la respuesta vuelve por la escucha.
    Las claves llevan puntos ("respuestas.r0.e2.opcion") para que dos personas
    puedan escribir cosas distintas del mismo documento sin pisarse. */
@@ -641,6 +717,7 @@ let U = {
   modoStaff: false,
   error: "",
   nombreDraft: "",
+  pin: "",            // solo en el dispositivo que creó la partida
   borrador: { opcion: null, justificacion: "" },
   borradorDe: null,   // a qué ronda pertenece el borrador
   editando: null,     // id del fragmento en edición, o "nuevo"
@@ -657,6 +734,15 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
 const uid = () => Math.random().toString(36).slice(2, 8);
 const azar = (n) => Math.floor(Math.random() * n);
+
+/* Huella del PIN. La partida guarda la huella, no el PIN: así una estudiante
+   curiosa no lo lee en el documento. La comprobación seria la hacen las
+   reglas de seguridad contra un documento que nadie puede leer. */
+function huella(txt) {
+  let h = 2166136261;
+  for (const c of String(txt)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36);
+}
 
 function codigoSala() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -680,9 +766,10 @@ async function crearPartida() {
     .filter(Boolean)
     .map((f) => ({ titulo: f.titulo, pregunta: f.pregunta || "", texto: f.texto }));
   if (!rondas.length) { U.error = "Elegí al menos un fragmento."; return render(); }
+  const pin = String(1000 + azar(9000));
   const partida = {
     codigo: codigoSala(),
-    pin: String(1000 + azar(9000)),
+    pinHuella: huella(pin),
     tipo: cfg.tipo,
     tipoNombre: TIPOS[cfg.tipo].nombre,
     criterio: clonar(TIPOS[cfg.tipo].criterio),
@@ -691,17 +778,19 @@ async function crearPartida() {
     rondas,
     rondaIndex: 0,
     fase: "lobby",              // lobby | ronda | puntuando | revelado | fin
-    finRonda: null,
-    respuestas: {},             // respuestas["r0"][equipoId]
-    puntajes: {}                // puntajes["r0"][equipoId]
+    finRonda: null
   };
 
+  U.pin = pin;
   if (MODO_NUBE) {
+    partida.creador = miUid;
     await window.FB.setDoc(refSala(partida.codigo), partida);
+    await window.FB.setDoc(refPrivado(partida.codigo), { pin });
     await sumarmeALaSala(partida.codigo, "docente", "", partida.cantidadEquipos);
     U.rol = "docente";
     U.miEquipo = null;
     U.pantalla = "partida";
+    recordarSesion(partida.codigo, "docente");
     escucharSala(partida.codigo);
     return render();
   }
@@ -711,6 +800,7 @@ async function crearPartida() {
   const cuantos = partida.equipos.length;
   NOMBRES_DEMO.slice(0, cuantos * 3 - 1).forEach((nom, i) => partida.equipos[i % cuantos].integrantes.push(nom));
   P = partida;
+  R = {}; PT = {};
   U.rol = "docente";
   U.miEquipo = "e2";            // en la demo, "yo estudiante" soy del Equipo 2
   U.pantalla = "partida";
@@ -719,12 +809,12 @@ async function crearPartida() {
 
 const claveRonda = () => "r" + P.rondaIndex;
 const fragmentoActual = () => P.rondas[P.rondaIndex] || null;
-const respuestasRonda = () => (P.respuestas || {})[claveRonda()] || {};
-const puntajesRonda = () => (P.puntajes || {})[claveRonda()] || {};
+const respuestasRonda = () => R[claveRonda()] || {};
+const puntajesRonda = () => PT[claveRonda()] || {};
 const respuestaDe = (eq) => respuestasRonda()[eq] || null;
 
 function totalDe(equipoId) {
-  return Object.values(P.puntajes || {}).reduce((acc, r) => acc + (r[equipoId] ?? 0), 0);
+  return Object.values(PT).reduce((acc, r) => acc + (r[equipoId] ?? 0), 0);
 }
 function ranking() {
   return P.equipos
@@ -742,8 +832,8 @@ function puntuados() {
 function iniciarRonda() {
   limpiarTimers();
   const k = claveRonda();
-  set({ fase: "ronda", finRonda: Date.now() + P.segundos * 1000,
-        ["respuestas." + k]: {}, ["puntajes." + k]: {} });
+  delete R[k]; delete PT[k];         // si se repite la ronda, arranca limpia
+  set({ fase: "ronda", finRonda: Date.now() + P.segundos * 1000 });
   arrancarLatido();
   if (!MODO_NUBE) demoOtrosEquiposResponden();
 }
@@ -766,22 +856,23 @@ function latido() {
   // Al vencer el tiempo cada equipo manda lo que tenga escrito, y quien
   // dicta la clase es el único que cierra la ronda (para no escribirlo 4 veces).
   if (U.rol === "estudiante" && U.miEquipo && !respuestaDe(U.miEquipo)?.enviada) {
-    set({ ["respuestas." + claveRonda() + "." + U.miEquipo]: {
-      opcion: U.borrador.opcion, justificacion: U.borrador.justificacion, enviada: true, vencida: true } });
+    guardarRespuesta(U.miEquipo, {
+      opcion: U.borrador.opcion, justificacion: U.borrador.justificacion, enviada: true, vencida: true });
   }
   if (U.rol === "docente" || !MODO_NUBE) cerrarRonda();
 }
 
 function cerrarRonda() {
   limpiarTimers();
-  const k = claveRonda();
-  const cambios = { fase: "puntuando", finRonda: null };
-  P.equipos.forEach((e) => {
+  // Lo que no llegó a enviarse se cierra como vencido, para que cátedra vea
+  // los cuatro equipos y no tres.
+  const pendientes = P.equipos.filter((e) => !respuestaDe(e.id)?.enviada).map((e) => {
     const r = respuestaDe(e.id);
-    if (!r) cambios["respuestas." + k + "." + e.id] = { opcion: null, justificacion: "", enviada: true, vencida: true };
-    else if (!r.enviada) cambios["respuestas." + k + "." + e.id] = { ...r, enviada: true, vencida: true };
+    return guardarRespuesta(e.id, {
+      opcion: r?.opcion ?? null, justificacion: r?.justificacion ?? "", enviada: true, vencida: true });
   });
-  set(cambios);
+  set({ fase: "puntuando", finRonda: null });
+  return Promise.all(pendientes.filter(Boolean));
 }
 
 function siguienteRonda() {
@@ -796,10 +887,10 @@ function demoOtrosEquiposResponden() {
     const cuando = 4000 + azar(Math.max(3000, P.segundos * 1000 - 12000));
     demoTimers.push(setTimeout(() => {
       if (!P || P.fase !== "ronda") return;
-      set({ ["respuestas." + claveRonda() + "." + e.id]: {
+      guardarRespuesta(e.id, {
         opcion: OPCIONES[azar(3)].id,
         justificacion: "El párrafo enumera autores pero no articula la teoría con el problema de investigación.",
-        enviada: true } });
+        enviada: true, vencida: false });
     }, cuando));
   });
 }
@@ -1105,7 +1196,7 @@ function vistaDocente() {
       <div class="big-code">
         <p class="lbl">Código de sala</p>
         <p class="val">${esc(P.codigo)}</p>
-        <p class="pin">PIN de cátedra <b>${esc(P.pin)}</b></p>
+        ${U.pin ? `<p class="pin">PIN de cátedra <b>${esc(U.pin)}</b></p>` : ""}
       </div>
       ${pasos()}
       <div class="card stack">
@@ -1282,7 +1373,7 @@ async function entrar() {
     }
     if (cod !== P.codigo) { U.error = "No encontramos esa sala. Revisá el código."; return render(); }
     if (U.modoStaff) {
-      if (U.pinDraft.trim() !== P.pin) { U.error = "PIN incorrecto."; return render(); }
+      if (huella(U.pinDraft.trim()) !== P.pinHuella) { U.error = "PIN incorrecto."; return render(); }
       U.rol = "catedra";
     } else {
       U.rol = "estudiante";
@@ -1295,11 +1386,21 @@ async function entrar() {
   try {
     const sala = await window.FB.getDoc(refSala(cod));
     if (!sala.exists()) { U.error = "No encontramos esa sala. Revisá el código."; return render(); }
-    if (U.modoStaff && U.pinDraft.trim() !== sala.data().pin) { U.error = "PIN incorrecto."; return render(); }
+    if (U.modoStaff) {
+      if (huella(U.pinDraft.trim()) !== sala.data().pinHuella) { U.error = "PIN incorrecto."; return render(); }
+      // Las reglas de seguridad rechazan este documento si el PIN no coincide:
+      // es la comprobación que no se puede esquivar desde el navegador.
+      try {
+        await window.FB.setDoc(refStaff(cod, miUid), { pin: U.pinDraft.trim() });
+      } catch (e) {
+        U.error = "PIN incorrecto."; return render();
+      }
+    }
 
     const rol = U.modoStaff ? "catedra" : "estudiante";
     U.miEquipo = await sumarmeALaSala(cod, rol, U.nombreDraft.trim(), sala.data().cantidadEquipos || 4);
     U.rol = rol; U.error = ""; U.pantalla = "partida";
+    recordarSesion(cod, rol);
     escucharSala(cod);
     render();
   } catch (e) {
@@ -1362,7 +1463,11 @@ document.addEventListener("click", (ev) => {
     cfg = { tipo: "estado", segundos: 90, equipos: 4, elegidos: ejemplos.map((f) => f.id) };
     return crearPartida();
   }
-  if (a === "home") { U.pantalla = "home"; U.rol = null; U.error = ""; U.modoStaff = false; return render(); }
+  if (a === "home") {
+    dejarDeEscuchar(); olvidarSesion();
+    U.pantalla = "home"; U.rol = null; U.error = ""; U.modoStaff = false; U.pin = "";
+    return render();
+  }
   if (a === "entrar") return entrar();
 
   // --- armado de la partida ---
@@ -1427,20 +1532,20 @@ document.addEventListener("click", (ev) => {
   if (a === "cortar") return cerrarRonda();
   if (a === "revelar") return set({ fase: "revelado" });
   if (a === "siguiente") return siguienteRonda();
-  if (a === "puntuar") return set({ ["puntajes." + claveRonda() + "." + b.dataset.eq]: Number(b.dataset.n) });
+  if (a === "puntuar") return guardarPuntaje(b.dataset.eq, Number(b.dataset.n));
 
   // --- estudiante ---
   // Lo que el equipo elige y escribe queda en el celular hasta que envía.
   if (a === "opcion") { U.borrador.opcion = b.dataset.o; return render(); }
   if (a === "enviar") {
     if (!U.borrador.opcion) return;
-    return set({ ["respuestas." + claveRonda() + "." + U.miEquipo]: {
-      opcion: U.borrador.opcion, justificacion: U.borrador.justificacion, enviada: true } });
+    return guardarRespuesta(U.miEquipo, {
+      opcion: U.borrador.opcion, justificacion: U.borrador.justificacion, enviada: true, vencida: false });
   }
 
   // --- barra de demo (solo Etapa 1) ---
   if (a === "rol") { U.rol = b.dataset.r; return render(); }
-  if (a === "reset") { limpiarTimers(); P = null; U = { ...U, pantalla: "home", rol: null, error: "", modoStaff: false, codigoDraft: "" }; return render(); }
+  if (a === "reset") { limpiarTimers(); olvidarSesion(); P = null; R = {}; PT = {}; U = { ...U, pantalla: "home", rol: null, error: "", modoStaff: false, codigoDraft: "" }; return render(); }
 });
 
 // Lo que se escribe se guarda sin volver a dibujar la pantalla, para no
@@ -1470,7 +1575,7 @@ nubeLista = (MODO_NUBE
       MODO_NUBE = false;               // seguimos en modo demo antes que romper
     })
   : Promise.resolve()
-).then(() => Promise.all([cargarBiblioteca(), cargarTipos()])).then(render);
+).then(() => Promise.all([cargarBiblioteca(), cargarTipos(), reconectar()])).then(render);
 </script>
 </body>
 </html>
