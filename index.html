@@ -923,7 +923,11 @@ async function presentarClave(clave) {
     await FB.setDoc(refDocente(miUid), { clave, desde: Date.now() });
     return "listo";
   } catch (e) {
-    return "error";
+    /* La clave quedó guardada pero el permiso no existe: pasa cuando la
+       aplicación ya tiene la clave de cátedra y la base todavía tiene las
+       reglas anteriores publicadas. Conviene decirlo con todas las letras,
+       porque "revisá la conexión" mandaría a buscar donde no es. */
+    return "reglas";
   }
 }
 
@@ -2094,6 +2098,12 @@ async function enviarClave() {
   U.error = "Comprobando…"; render();
   const resultado = await presentarClave(clave);
   if (resultado === "incorrecta") { U.error = "Clave incorrecta."; return render(); }
+  if (resultado === "reglas") {
+    U.error = "La base de datos todavía tiene las reglas de seguridad anteriores. " +
+              "En la consola de Firebase, Firestore Database → Reglas, pegá el contenido " +
+              "de firestore.rules y publicá. Después volvé a intentar.";
+    return render();
+  }
   if (resultado === "error") { U.error = "No pudimos comprobarla. Revisá la conexión."; return render(); }
 
   U.esDocente = true; U.error = ""; U.pantalla = "crear";
