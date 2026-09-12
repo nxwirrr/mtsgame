@@ -926,6 +926,7 @@ let U = {
   nombreDraft: "",
   pin: "",            // solo en el dispositivo que creó la partida
   aviso: "",          // mensaje pasajero de error
+  cargando: true,     // todavía no llegó la biblioteca
   sinRed: typeof navigator !== "undefined" && navigator.onLine === false,
   nubeCaida: false,   // hay configuración pero no se pudo conectar
   borrador: { elegidas: [], justificacion: "" },
@@ -1465,7 +1466,9 @@ function vistaCrear() {
           </button>
           <button class="btn link editar" data-a="editar-frag" data-f="${f.id}">Editar</button>
         </div>`).join("")}</div>`
-      : `<p class="muted">Esta actividad todavía no tiene ítems. Tocá <b>+ Nuevo</b> para agregar uno.</p>`}
+      : U.cargando
+        ? `<p class="muted">Cargando la biblioteca…</p>`
+        : `<p class="muted">Esta actividad todavía no tiene ítems. Tocá <b>+ Nuevo</b> para agregar uno.</p>`}
       <p class="muted" style="font-size:12px">Los ítems quedan guardados para las próximas clases.</p>
     </div>
 
@@ -2040,7 +2043,7 @@ nubeLista = (MODO_NUBE
     U.nubeCaida = true;
     return cargarBiblioteca().catch(() => {});
   })
-  .then(render);
+  .then(() => { U.cargando = false; render(); });
 </script>
 </body>
 </html>
