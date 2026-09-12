@@ -24,11 +24,19 @@ Está conectada a la base de datos de la cátedra. Funciona en dos modalidades:
 - Sorteo de equipos al entrar, entre dos y ocho, equilibrando integrantes
 - Actividades propias: las tres de fábrica se editan y se pueden crear otras
   desde la aplicación, con nombre, consigna y criterio propios
-- Tres formatos de respuesta: dictamen (los tres fallos), verdadero o falso,
-  y opción múltiple con opciones escritas por quien carga cada ítem, marcando
-  una o varias correctas
-- Respuesta esperada por ítem, que cátedra ve como referencia al puntar,
-  junto con un aviso de si el equipo coincidió
+- Cuatro formatos de respuesta: dictamen (los tres fallos), verdadero o
+  falso, opción múltiple con opciones escritas por quien carga cada ítem
+  marcando una o varias correctas, y respuesta abierta
+- Respuesta esperada por ítem —o respuesta modelo, en las abiertas— que
+  cátedra ve como referencia al puntuar, junto con un aviso de si el equipo
+  coincidió
+- Puntaje sugerido opcional: al cerrar la ronda los equipos que acertaron
+  quedan con +2 marcado como sugerencia, hasta que cátedra lo confirme
+- Justificación escrita opcional por actividad, para controles de lectura
+- Duplicar actividades e ítems
+- La justificación mejor puntuada de la ronda aparece al revelar, en las tres
+  pantallas
+- Resumen de la partida descargable en un archivo que abre cualquier planilla
 - Biblioteca de ítems que se guarda y se reusa entre clases
 - Criterios de puntaje editables por actividad, guardados para toda la
   cátedra; cada partida se lleva su copia al crearse
