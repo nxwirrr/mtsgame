@@ -300,6 +300,35 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
   border-radius:var(--r-md);padding:12px 14px;font-size:13px;line-height:1.45;
 }
 
+/* ---------- fichas de actividad ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  border:1.5px solid var(--line-2);background:#fff;color:var(--ink-2);
+  border-radius:999px;padding:9px 15px;font-size:14px;font-weight:600;min-height:40px;
+}
+.chip[aria-pressed=true]{border-color:var(--docente);background:var(--docente-soft);color:var(--docente)}
+.chip.mas{font-size:19px;font-weight:700;padding:9px 16px;color:var(--docente);border-style:dashed}
+
+/* ---------- opciones de un ítem ---------- */
+.fila-opcion{display:flex;align-items:center;gap:8px}
+.fila-opcion .op-texto{flex:1;padding:10px 12px;border-radius:var(--r-sm)}
+.tilde{
+  flex:0 0 auto;width:34px;height:34px;border-radius:9px;border:1.5px solid var(--line-2);
+  background:#fff;display:grid;place-items:center;font-weight:800;color:#fff;font-size:15px;
+}
+.tilde[aria-pressed=true]{background:var(--si);border-color:var(--si)}
+.fila-opcion .quitar{min-height:34px;font-size:12px;padding:0 4px;flex:0 0 auto}
+
+.marca{
+  font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  padding:4px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap;
+}
+.marca.bien{color:var(--si);background:var(--si-soft);border-color:#c7e6d2}
+.marca.mal{color:var(--muted);background:var(--surface-2);border-color:var(--line)}
+
+.opt.neutro[aria-pressed=true]{border-color:var(--docente);background:var(--docente-soft)}
+.opt.neutro[aria-pressed=true] .badge{background:var(--docente);color:#fff;border-color:var(--docente)}
+
 /* ---------- avisos pasajeros ---------- */
 .avisos{
   position:fixed;left:0;right:0;bottom:calc(var(--bar) + env(safe-area-inset-bottom));
@@ -361,21 +390,65 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
 
 // Las 3 opciones son siempre las mismas. Lo que cambia por tipo de actividad
 // es el criterio de puntaje que ve cátedra (ver TIPOS).
-const OPCIONES = [
-  { id: "aprueba",       letra: "A", clase: "si",  texto: "Aprueba" },
-  { id: "observaciones", letra: "B", clase: "obs", texto: "Aprueba con observaciones" },
-  { id: "no_aprueba",    letra: "C", clase: "no",  texto: "No aprueba" }
-];
-const opcionPorId = (id) => OPCIONES.find((o) => o.id === id) || null;
+/* ─── Formatos de respuesta ───────────────────────────────────────────────
+   Cada actividad elige cómo responde el equipo. Dictamen y verdadero o falso
+   traen sus opciones fijas; en opción múltiple las escribe quien carga cada
+   ítem, y ahí mismo marca cuál o cuáles son correctas. */
+const FORMATOS = {
+  dictamen: {
+    nombre: "Dictamen",
+    ayuda: "Aprueba · Aprueba con observaciones · No aprueba",
+    fijas: [
+      { id: "aprueba",       letra: "A", clase: "si",  texto: "Aprueba" },
+      { id: "observaciones", letra: "B", clase: "obs", texto: "Aprueba con observaciones" },
+      { id: "no_aprueba",    letra: "C", clase: "no",  texto: "No aprueba" }
+    ]
+  },
+  vf: {
+    nombre: "Verdadero o falso",
+    ayuda: "Dos opciones fijas",
+    fijas: [
+      { id: "v", letra: "V", clase: "si", texto: "Verdadero" },
+      { id: "f", letra: "F", clase: "no", texto: "Falso" }
+    ]
+  },
+  opciones: {
+    nombre: "Opción múltiple",
+    ayuda: "Las opciones se escriben en cada ítem; podés marcar una o varias correctas",
+    fijas: null
+  }
+};
+const FORMATO_IDS = Object.keys(FORMATOS);
+const LETRAS = "ABCDEFGHIJ";
 
-/* Punto de partida de los tres tipos de actividad. Cada cátedra los edita
-   desde la propia aplicación (pantalla "Criterios de puntaje"); lo editado
-   se guarda y reemplaza a estos valores. */
+const formatoDe = (algo) => FORMATOS[algo?.formato] ? algo.formato : "dictamen";
+
+// Las opciones que se le muestran al equipo para un ítem dado.
+function opcionesVisibles(item, formato) {
+  const f = FORMATOS[formato] || FORMATOS.dictamen;
+  if (f.fijas) return f.fijas;
+  return (item?.opciones || []).map((o, i) => ({
+    id: o.id, letra: LETRAS[i] || "·", clase: "neutro", texto: o.texto
+  }));
+}
+
+// Cuál o cuáles son las correctas, para que cátedra las tenga de referencia.
+function correctasDe(item, formato) {
+  if (!item) return [];
+  if (formato === "opciones") return (item.opciones || []).filter((o) => o.correcta).map((o) => o.id);
+  return item.esperada ? [item.esperada] : [];
+}
+const permiteVarias = (item, formato) => formato === "opciones" && correctasDe(item, formato).length > 1;
+
+/* ─── Actividades ─────────────────────────────────────────────────────────
+   Estas tres son el punto de partida. Cada cátedra las edita y crea las
+   propias desde la aplicación; lo que se guarda reemplaza a esta lista. */
 const TIPOS_BASE = {
   fragmento: {
     nombre: "Evaluación de fragmento",
     corto: "Fragmento",
     consigna: "Leé el fragmento y dictaminá.",
+    formato: "dictamen",
     criterio: {
       2: "Fundamenta con criterios del texto y justifica el fallo.",
       1: "Identifica el problema pero la justificación es general.",
@@ -386,6 +459,7 @@ const TIPOS_BASE = {
     nombre: "Estado de la cuestión",
     corto: "Estado",
     consigna: "¿El párrafo construye estado de la cuestión?",
+    formato: "dictamen",
     criterio: {
       2: "Detecta si hay articulación entre autores y recorte al problema.",
       1: "Nota que algo falta pero no precisa qué.",
@@ -396,18 +470,21 @@ const TIPOS_BASE = {
     nombre: "Objetivos",
     corto: "Objetivos",
     consigna: "¿El objetivo está bien formulado?",
+    formato: "dictamen",
     criterio: {
       2: "Evalúa verbo, alcance y correspondencia con el problema.",
       1: "Revisa la forma pero no la correspondencia con el problema.",
-      0: "Juzga por gusto o por redacción, sin criterio metodológico."
+      0: "Juzga por gusto o por criterio de redacción, no metodológico."
     }
   }
 };
-const TIPO_IDS = Object.keys(TIPOS_BASE);
+
 const LLAVE_TIPOS = "dictamen-tipos";
 const LLAVE_SESION = "dictamen-sesion";
 const clonar = (o) => JSON.parse(JSON.stringify(o));
 let TIPOS = clonar(TIPOS_BASE);
+let TIPO_IDS = Object.keys(TIPOS);                 // cambia al crear o borrar
+const refrescarIds = () => { TIPO_IDS = Object.keys(TIPOS); };
 
 // Cada partida se lleva una copia del criterio: si alguien lo edita en medio
 // de una clase, la partida en curso no cambia de reglas a mitad de camino.
@@ -691,29 +768,63 @@ async function cargarTipos() {
     try { guardado = JSON.parse(localStorage.getItem(LLAVE_TIPOS) || "null"); } catch (e) {}
   }
   TIPOS = clonar(TIPOS_BASE);
-  if (!guardado) return;
-  TIPO_IDS.forEach((t) => {
-    const g = guardado[t];
-    if (!g) return;
-    if (g.nombre) TIPOS[t].nombre = g.nombre;
-    if (g.corto) TIPOS[t].corto = g.corto;
-    if (g.consigna) TIPOS[t].consigna = g.consigna;
-    if (g.criterio) [2, 1, 0].forEach((n) => {
-      if (g.criterio[n]) TIPOS[t].criterio[n] = g.criterio[n];
+  if (guardado && Array.isArray(guardado.lista)) {
+    // Formato nuevo: la lista completa, con las actividades propias incluidas.
+    TIPOS = {};
+    guardado.lista.forEach((a) => {
+      if (!a || !a.id) return;
+      TIPOS[a.id] = {
+        nombre: a.nombre || "Actividad",
+        corto: a.corto || (a.nombre || "Actividad").slice(0, 12),
+        consigna: a.consigna || "",
+        formato: FORMATOS[a.formato] ? a.formato : "dictamen",
+        criterio: { 2: a.criterio?.[2] || "", 1: a.criterio?.[1] || "", 0: a.criterio?.[0] || "" },
+        propia: !!a.propia
+      };
     });
-  });
+    if (!Object.keys(TIPOS).length) TIPOS = clonar(TIPOS_BASE);
+  } else if (guardado) {
+    // Formato viejo: eran solo retoques sobre las tres de fábrica.
+    Object.keys(TIPOS).forEach((t) => {
+      const g = guardado[t];
+      if (!g) return;
+      if (g.nombre) TIPOS[t].nombre = g.nombre;
+      if (g.corto) TIPOS[t].corto = g.corto;
+      if (g.consigna) TIPOS[t].consigna = g.consigna;
+      if (g.criterio) [2, 1, 0].forEach((n) => { if (g.criterio[n]) TIPOS[t].criterio[n] = g.criterio[n]; });
+    });
+  }
+  refrescarIds();
+  if (!TIPOS[cfg.tipo]) cfg.tipo = TIPO_IDS[0];
 }
 
 async function guardarTipos() {
-  const paraGuardar = {};
-  TIPO_IDS.forEach((t) => {
-    paraGuardar[t] = {
-      nombre: TIPOS[t].nombre, corto: TIPOS[t].corto, consigna: TIPOS[t].consigna,
-      criterio: { 2: TIPOS[t].criterio[2], 1: TIPOS[t].criterio[1], 0: TIPOS[t].criterio[0] }
-    };
-  });
-  if (MODO_NUBE && db) await window.FB.setDoc(window.FB.doc(db, "config", "tipos"), paraGuardar);
-  else { try { localStorage.setItem(LLAVE_TIPOS, JSON.stringify(paraGuardar)); } catch (e) {} }
+  const lista = TIPO_IDS.map((t) => ({
+    id: t, nombre: TIPOS[t].nombre, corto: TIPOS[t].corto, consigna: TIPOS[t].consigna,
+    formato: formatoDe(TIPOS[t]), propia: !!TIPOS[t].propia,
+    criterio: { 2: TIPOS[t].criterio[2], 1: TIPOS[t].criterio[1], 0: TIPOS[t].criterio[0] }
+  }));
+  if (MODO_NUBE && db) await window.FB.setDoc(window.FB.doc(db, "config", "tipos"), { lista });
+  else { try { localStorage.setItem(LLAVE_TIPOS, JSON.stringify({ lista })); } catch (e) {} }
+}
+
+// Crear una actividad propia y borrarla.
+function nuevaActividad() {
+  const id = "a" + uid();
+  TIPOS[id] = {
+    nombre: "", corto: "", consigna: "", formato: "dictamen", propia: true,
+    criterio: { 2: "", 1: "", 0: "" }
+  };
+  refrescarIds();
+  return id;
+}
+function borrarActividad(id) {
+  if (!TIPOS[id]) return;
+  delete TIPOS[id];
+  refrescarIds();
+  BIBLIOTECA = BIBLIOTECA.filter((f) => f.tipo !== id);   // sus ítems ya no tienen dónde vivir
+  if (!TIPOS[cfg.tipo]) cfg.tipo = TIPO_IDS[0];
+  cfg.elegidos = [];
 }
 
 /* ---------------------------------------------------------- BIBLIOTECA --- */
@@ -815,9 +926,10 @@ let U = {
   nombreDraft: "",
   pin: "",            // solo en el dispositivo que creó la partida
   aviso: "",          // mensaje pasajero de error
+  cargando: true,     // todavía no llegó la biblioteca
   sinRed: typeof navigator !== "undefined" && navigator.onLine === false,
   nubeCaida: false,   // hay configuración pero no se pudo conectar
-  borrador: { opcion: null, justificacion: "" },
+  borrador: { elegidas: [], justificacion: "" },
   borradorDe: null,   // a qué ronda pertenece el borrador
   editando: null,     // id del fragmento en edición, o "nuevo"
   nuevo: { titulo: "", pregunta: "", texto: "" }
@@ -879,7 +991,11 @@ async function crearPartida() {
   const rondas = cfg.elegidos
     .map((id) => BIBLIOTECA.find((x) => x.id === id))
     .filter(Boolean)
-    .map((f) => ({ titulo: f.titulo, pregunta: f.pregunta || "", texto: f.texto }));
+    .map((f) => ({
+      titulo: f.titulo, pregunta: f.pregunta || "", texto: f.texto,
+      esperada: f.esperada || null,
+      opciones: (f.opciones || []).map((o) => ({ id: o.id, texto: o.texto, correcta: !!o.correcta }))
+    }));
   if (!rondas.length) { U.error = "Elegí al menos un fragmento."; return render(); }
   const pin = String(1000 + azar(9000));
   const codigo = await codigoLibre();
@@ -889,6 +1005,7 @@ async function crearPartida() {
     pinHuella: huella(pin),
     tipo: cfg.tipo,
     tipoNombre: TIPOS[cfg.tipo].nombre,
+    formato: formatoDe(TIPOS[cfg.tipo]),
     criterio: clonar(TIPOS[cfg.tipo].criterio),
     segundos: cfg.segundos,
     cantidadEquipos: cfg.equipos,
@@ -925,6 +1042,10 @@ async function crearPartida() {
 }
 
 const claveRonda = () => "r" + P.rondaIndex;
+const opcionesRonda = () => opcionesVisibles(fragmentoActual(), formatoDe(P));
+const correctasRonda = () => correctasDe(fragmentoActual(), formatoDe(P));
+const variasRonda = () => permiteVarias(fragmentoActual(), formatoDe(P));
+const elegidasDe = (r) => (r && (r.elegidas || (r.opcion ? [r.opcion] : []))) || [];
 const fragmentoActual = () => P.rondas[P.rondaIndex] || null;
 const respuestasRonda = () => R[claveRonda()] || {};
 const puntajesRonda = () => PT[claveRonda()] || {};
@@ -1009,7 +1130,7 @@ function latido() {
     vencimientoAtendido = claveRonda();
     if (U.rol === "estudiante" && U.miEquipo && !respuestaDe(U.miEquipo)?.enviada) {
       guardarRespuesta(U.miEquipo, {
-        opcion: U.borrador.opcion, justificacion: U.borrador.justificacion, enviada: true, vencida: true });
+        elegidas: U.borrador.elegidas, justificacion: U.borrador.justificacion, enviada: true, vencida: true });
     }
   }
 
@@ -1028,7 +1149,7 @@ function cerrarRonda() {
   const pendientes = equiposActivos().filter((e) => !respuestaDe(e.id)?.enviada).map((e) => {
     const r = respuestaDe(e.id);
     return guardarRespuesta(e.id, {
-      opcion: r?.opcion ?? null, justificacion: r?.justificacion ?? "", enviada: true, vencida: true });
+      elegidas: elegidasDe(r), justificacion: r?.justificacion ?? "", enviada: true, vencida: true });
   });
   set({ fase: "puntuando", finRonda: null });
   return Promise.all(pendientes.filter(Boolean));
@@ -1046,8 +1167,9 @@ function demoOtrosEquiposResponden() {
     const cuando = 4000 + azar(Math.max(3000, P.segundos * 1000 - 12000));
     demoTimers.push(setTimeout(() => {
       if (!P || P.fase !== "ronda") return;
+      const posibles = opcionesRonda();
       guardarRespuesta(e.id, {
-        opcion: OPCIONES[azar(3)].id,
+        elegidas: posibles.length ? [posibles[azar(posibles.length)].id] : [],
         justificacion: "El párrafo enumera autores pero no articula la teoría con el problema de investigación.",
         enviada: true, vencida: false });
     }, cuando));
@@ -1106,10 +1228,37 @@ function fragmentoHTML(f, conPregunta = true) {
   </div>`;
 }
 
-function tagOpcion(id, vencida) {
-  const o = opcionPorId(id);
-  if (!o) return `<span class="tag gris">${vencida ? "Sin responder" : "—"}</span>`;
-  return `<span class="tag ${o.clase}">${esc(o.texto)}</span>`;
+function tagsRespuesta(r, opciones) {
+  const elegidas = elegidasDe(r);
+  if (!elegidas.length) {
+    return `<span class="tag gris">${r?.vencida ? "Sin responder" : "—"}</span>`;
+  }
+  return elegidas.map((id) => {
+    const o = (opciones || []).find((x) => x.id === id);
+    return o ? `<span class="tag ${o.clase}">${esc(o.texto)}</span>`
+             : `<span class="tag gris">opción borrada</span>`;
+  }).join(" ");
+}
+
+// Referencia para cátedra: qué se esperaba y si el equipo coincidió.
+function referenciaHTML() {
+  const correctas = correctasRonda();
+  if (!correctas.length) return "";
+  const opciones = opcionesRonda();
+  const textos = correctas.map((id) => (opciones.find((o) => o.id === id) || {}).texto || "?");
+  return `<div class="card flat stack-sm">
+    <p class="kicker">${correctas.length > 1 ? "Respuestas correctas" : "Respuesta esperada"}</p>
+    <p class="lead">${textos.map((t) => esc(t)).join(" · ")}</p>
+  </div>`;
+}
+
+function coincideHTML(r) {
+  const correctas = correctasRonda();
+  if (!correctas.length) return "";
+  const elegidas = elegidasDe(r);
+  if (!elegidas.length) return "";
+  const iguales = correctas.length === elegidas.length && correctas.every((c) => elegidas.includes(c));
+  return `<span class="marca ${iguales ? "bien" : "mal"}">${iguales ? "coincide" : "no coincide"}</span>`;
 }
 
 function rankingHTML(destacarMio) {
@@ -1134,8 +1283,9 @@ function panelPuntaje(editable) {
         ${[2,1,0].map((n) => `<p class="muted"><b style="color:var(--ink)">+${n}</b> · ${esc(crit[n])}</p>`).join("")}
       </div>
     </div>
-    <p class="muted" style="font-size:12px">Criterio de ejemplo. Cada tipo de actividad usa el suyo.</p>
+    <p class="muted" style="font-size:12px">El criterio se edita por actividad, en "Armar partida".</p>
   </div>
+  ${referenciaHTML()}
   ${equiposActivos().map((e) => {
     const r = respuestaDe(e.id) || {};
     const p = pts[e.id];
@@ -1144,7 +1294,8 @@ function panelPuntaje(editable) {
         <span class="avatar ${e.id}">${esc(e.nombre.replace("Equipo ", "E"))}</span>
         <span class="name">${esc(e.nombre)}</span>
         <span class="spacer"></span>
-        ${tagOpcion(r.opcion, r.vencida)}
+        ${coincideHTML(r)}
+        ${tagsRespuesta(r, opcionesRonda())}
       </div>
       <p class="lead">${r.justificacion ? esc(r.justificacion) : `<span class="muted">Sin justificación${r.vencida ? " (se venció el tiempo)" : ""}.</span>`}</p>
       ${editable ? `<div class="scorebtns">
@@ -1219,21 +1370,51 @@ function vistaCrear() {
   const lista = BIBLIOTECA.filter((f) => f.tipo === cfg.tipo);
   const editado = U.editando && U.editando !== "nuevo" ? BIBLIOTECA.find((f) => f.id === U.editando) : null;
 
+  const formato = formatoDe(TIPOS[cfg.tipo]);
+  const fijas = FORMATOS[formato].fijas;
+  const etiquetaTexto = formato === "opciones" ? "Enunciado de la pregunta" : "Texto del fragmento";
+
+  // Respuesta correcta: fija para dictamen y verdadero o falso; escrita a mano
+  // en opción múltiple, donde se marca cuál o cuáles valen.
+  const bloqueCorrecta = fijas ? `
+    <div>
+      <span class="label">Respuesta esperada · referencia para cátedra</span>
+      <div class="chips">
+        ${fijas.map((o) => `<button class="chip" data-a="esperada" data-o="${o.id}"
+            aria-pressed="${U.nuevo.esperada === o.id}">${esc(o.texto)}</button>`).join("")}
+        <button class="chip" data-a="esperada" data-o="" aria-pressed="${!U.nuevo.esperada}">Sin definir</button>
+      </div>
+    </div>`
+  : `
+    <div class="stack-sm">
+      <span class="label">Opciones · marcá la correcta o las correctas</span>
+      ${(U.nuevo.opciones || []).map((o, i) => `
+        <div class="fila-opcion">
+          <button class="tilde" data-a="correcta" data-o="${o.id}" aria-pressed="${!!o.correcta}"
+            title="Marcar como correcta">${o.correcta ? "✓" : ""}</button>
+          <input type="text" data-op="${o.id}" class="op-texto" value="${esc(o.texto)}"
+            placeholder="Opción ${LETRAS[i] || ""}" />
+          <button class="btn link quitar" data-a="quitar-opcion" data-o="${o.id}">quitar</button>
+        </div>`).join("")}
+      <button class="btn sm soft" data-a="agregar-opcion">+ Agregar opción</button>
+    </div>`;
+
   const formulario = `<div class="card flat stack">
-    <p class="kicker">${editado ? "Editar fragmento" : "Fragmento nuevo"}</p>
+    <p class="kicker">${editado ? "Editar ítem" : "Ítem nuevo"}</p>
     <label class="field"><span class="label">Título</span>
       <input type="text" id="n-titulo" value="${esc(U.nuevo.titulo)}" placeholder="Caso 3 · ..." /></label>
     <label class="field"><span class="label">Pregunta o consigna</span>
       <input type="text" id="n-pregunta" value="${esc(U.nuevo.pregunta)}" placeholder="Opcional" /></label>
-    <label class="field"><span class="label">Texto del fragmento</span>
-      <textarea id="n-texto" placeholder="Pegá acá el párrafo...">${esc(U.nuevo.texto)}</textarea></label>
+    <label class="field"><span class="label">${esc(etiquetaTexto)}</span>
+      <textarea id="n-texto" placeholder="Pegá acá el texto...">${esc(U.nuevo.texto)}</textarea></label>
+    ${bloqueCorrecta}
     <div class="row">
       <button class="btn sm soft" data-a="cancelar-frag">Cancelar</button>
       <span class="spacer"></span>
       <button class="btn sm docente" data-a="guardar-frag">Guardar</button>
     </div>
     ${editado ? `<button class="btn link" data-a="borrar-frag" data-f="${editado.id}"
-        style="color:var(--no)">Borrar este fragmento de la biblioteca</button>` : ""}
+        style="color:var(--no)">Borrar este ítem de la biblioteca</button>` : ""}
   </div>`;
 
   return `<div class="screen">
@@ -1249,15 +1430,19 @@ function vistaCrear() {
 
     <div class="card stack">
       <div>
-        <span class="label">Tipo de actividad</span>
-        <div class="seg">
-          ${TIPO_IDS.map((t) => `<button data-a="tipo" data-t="${t}" aria-pressed="${cfg.tipo === t}">${esc(TIPOS[t].corto)}</button>`).join("")}
+        <span class="label">Actividad</span>
+        <div class="chips">
+          ${TIPO_IDS.map((t) => `<button class="chip" data-a="tipo" data-t="${t}" aria-pressed="${cfg.tipo === t}">${esc(TIPOS[t].corto || TIPOS[t].nombre)}</button>`).join("")}
+          <button class="chip mas" data-a="nueva-actividad" title="Crear una actividad">+</button>
         </div>
-        <p class="muted" style="margin-top:8px">${esc(TIPOS[cfg.tipo].nombre)} · ${esc(TIPOS[cfg.tipo].consigna)}</p>
+        <p class="muted" style="margin-top:10px">
+          ${esc(TIPOS[cfg.tipo].nombre)}${TIPOS[cfg.tipo].consigna ? " · " + esc(TIPOS[cfg.tipo].consigna) : ""}
+          <br /><span style="font-size:12px">Formato: ${esc(FORMATOS[formatoDe(TIPOS[cfg.tipo])].nombre)}</span>
+        </p>
       </div>
       <div class="row">
         <span class="spacer"></span>
-        <button class="btn sm soft" data-a="ir-criterios">Criterios de puntaje</button>
+        <button class="btn sm soft" data-a="ir-actividad">Editar esta actividad</button>
       </div>
     </div>
 
@@ -1281,8 +1466,10 @@ function vistaCrear() {
           </button>
           <button class="btn link editar" data-a="editar-frag" data-f="${f.id}">Editar</button>
         </div>`).join("")}</div>`
-      : `<p class="muted">No hay fragmentos de este tipo todavía. Tocá <b>+ Nuevo</b> para agregar uno.</p>`}
-      <p class="muted" style="font-size:12px">Los fragmentos quedan guardados para las próximas clases.</p>
+      : U.cargando
+        ? `<p class="muted">Cargando la biblioteca…</p>`
+        : `<p class="muted">Esta actividad todavía no tiene ítems. Tocá <b>+ Nuevo</b> para agregar uno.</p>`}
+      <p class="muted" style="font-size:12px">Los ítems quedan guardados para las próximas clases.</p>
     </div>
 
     <div class="card stack">
@@ -1307,8 +1494,11 @@ function vistaCrear() {
   </div>`;
 }
 
-function vistaCriterios() {
+function vistaActividad() {
   const t = TIPOS[cfg.tipo];
+  if (!t) { U.pantalla = "crear"; return vistaCrear(); }
+  const enUso = BIBLIOTECA.filter((f) => f.tipo === cfg.tipo).length;
+
   return `<div class="screen">
     <div class="topbar">
       <span class="rolechip docente"><i class="dot"></i>Docente</span>
@@ -1316,33 +1506,50 @@ function vistaCriterios() {
     </div>
 
     <div>
-      <h1>Criterios de puntaje</h1>
-      <p class="lead" style="margin-top:6px">Lo que cátedra lee al asignar +2, +1 o 0. Cambia por tipo de actividad.</p>
+      <h1>${t.propia && !t.nombre ? "Actividad nueva" : "Editar actividad"}</h1>
+      <p class="lead" style="margin-top:6px">Cómo se llama, cómo responden los equipos y con qué criterio puntúa cátedra.</p>
+    </div>
+
+    <div class="card stack">
+      <label class="field"><span class="label">Nombre</span>
+        <input type="text" id="c-nombre" value="${esc(t.nombre)}" placeholder="Ej: Antecedentes" /></label>
+      <label class="field"><span class="label">Nombre corto · para la lista</span>
+        <input type="text" id="c-corto" maxlength="14" value="${esc(t.corto)}" placeholder="Ej: Antecedentes" /></label>
+      <label class="field"><span class="label">Consigna breve</span>
+        <input type="text" id="c-consigna" value="${esc(t.consigna)}" placeholder="Lo que leen los equipos arriba del ítem" /></label>
     </div>
 
     <div class="card stack">
       <div>
-        <span class="label">Tipo de actividad</span>
-        <div class="seg">
-          ${TIPO_IDS.map((id) => `<button data-a="tipo" data-t="${id}" aria-pressed="${cfg.tipo === id}">${esc(TIPOS[id].corto)}</button>`).join("")}
+        <span class="label">Cómo responden los equipos</span>
+        <div class="chips">
+          ${FORMATO_IDS.map((f) => `<button class="chip" data-a="formato" data-f="${f}"
+              aria-pressed="${formatoDe(t) === f}">${esc(FORMATOS[f].nombre)}</button>`).join("")}
         </div>
+        <p class="muted" style="margin-top:10px">${esc(FORMATOS[formatoDe(t)].ayuda)}</p>
       </div>
-      <label class="field"><span class="label">Nombre</span>
-        <input type="text" id="c-nombre" value="${esc(t.nombre)}" /></label>
-      <label class="field"><span class="label">Consigna breve</span>
-        <input type="text" id="c-consigna" value="${esc(t.consigna)}" /></label>
+      ${enUso ? `<p class="muted" style="font-size:12px">Esta actividad ya tiene ${enUso} ítem${enUso === 1 ? "" : "s"}.
+        Si cambiás el formato, revisalos: las opciones que cargaste se conservan, pero puede que ya no correspondan.</p>` : ""}
+      <p class="muted" style="font-size:12px">La justificación escrita se pide siempre: es lo que cátedra puntúa.</p>
     </div>
 
-    ${[2, 1, 0].map((n) => `<label class="field card">
-      <span class="label">Amerita +${n}</span>
-      <textarea id="c-${n}" style="min-height:88px">${esc(t.criterio[n])}</textarea>
-    </label>`).join("")}
+    <div class="card stack">
+      <span class="label" style="margin:0">Criterio de puntaje</span>
+      ${[2, 1, 0].map((n) => `<label class="field">
+        <span class="label">Amerita +${n}</span>
+        <textarea id="c-${n}" style="min-height:80px"
+          placeholder="Qué tiene que tener la justificación para valer +${n}">${esc(t.criterio[n])}</textarea>
+      </label>`).join("")}
+    </div>
 
-    <button class="btn docente" data-a="guardar-criterios">Guardar criterios</button>
-    <button class="btn link" data-a="restaurar-criterios">Volver a los criterios de ejemplo de ${esc(t.corto)}</button>
+    <button class="btn docente" data-a="guardar-actividad">Guardar actividad</button>
+    ${t.propia
+      ? `<button class="btn link" data-a="borrar-actividad" style="color:var(--no)">
+           Borrar esta actividad y sus ${enUso} ítem${enUso === 1 ? "" : "s"}</button>`
+      : `<button class="btn link" data-a="restaurar-criterios">Volver a los valores de fábrica de ${esc(t.corto || t.nombre)}</button>`}
     <p class="muted" style="text-align:center">${MODO_NUBE
-      ? "Se guardan para toda la cátedra."
-      : "Se guardan en este navegador. Con base de datos, quedan para toda la cátedra."}</p>
+      ? "Se guarda para toda la cátedra."
+      : "Se guarda en este navegador. Con base de datos, queda para toda la cátedra."}</p>
   </div>`;
 }
 
@@ -1472,32 +1679,40 @@ function vistaEstudiante() {
         <div class="card stack">${timerHTML()}</div>
         ${esperando("Respuesta enviada", "Esperá a que terminen los demás equipos.")}
         <div class="card stack">
-          <div class="row"><span class="muted">Su fallo</span><span class="spacer"></span>${tagOpcion(r.opcion)}</div>
+          <div class="row wrap"><span class="muted">Su respuesta</span><span class="spacer"></span>
+            ${tagsRespuesta(r, opcionesRonda())}</div>
           <p class="lead">${esc(r.justificacion)}</p>
         </div>`;
-      const elegida = U.borrador.opcion;
+      const opciones = opcionesRonda();
+      const varias = variasRonda();
+      const elegidas = U.borrador.elegidas;
+      const consigna = { dictamen: "¿Qué dictaminan?", vf: "¿Verdadero o falso?" }[formatoDe(P)] || "¿Qué responden?";
       return `
         <div class="card stack">${timerHTML()}
           <p class="muted">Al vencer el tiempo se envía sola, aunque esté incompleta.</p></div>
         ${fragmentoHTML(f)}
         <div class="card stack">
-          <span class="label">¿Qué dictaminan?</span>
-          <div class="opts">${OPCIONES.map((o) => `
-            <button class="opt ${o.clase}" data-a="opcion" data-o="${o.id}" aria-pressed="${elegida === o.id}">
+          <span class="label">${esc(consigna)}</span>
+          ${varias ? `<p class="muted" style="margin:-2px 0 2px">Pueden marcar más de una.</p>` : ""}
+          ${opciones.length ? `<div class="opts">${opciones.map((o) => `
+            <button class="opt ${o.clase}" data-a="opcion" data-o="${o.id}" aria-pressed="${elegidas.includes(o.id)}">
               <span class="badge">${o.letra}</span><span class="txt">${esc(o.texto)}</span>
-            </button>`).join("")}</div>
+            </button>`).join("")}</div>`
+          : `<p class="muted">Esta pregunta quedó sin opciones cargadas. Escriban la respuesta abajo.</p>`}
         </div>
         <label class="field card">
           <span class="label">¿Por qué?</span>
           <textarea id="justi" maxlength="1500" placeholder="Escriban la justificación del equipo...">${esc(U.borrador.justificacion)}</textarea>
         </label>
-        <button class="btn equipo" data-a="enviar" ${elegida ? "" : "disabled"}>Enviar respuesta</button>`;
+        <button class="btn equipo" data-a="enviar"
+          ${elegidas.length || !opciones.length ? "" : "disabled"}>Enviar respuesta</button>`;
     },
 
     puntuando: () => `${pasos()}
       ${esperando("Cátedra está puntuando", "En un momento ven el resultado de la ronda.")}
       <div class="card stack">
-        <div class="row"><span class="muted">Su fallo</span><span class="spacer"></span>${tagOpcion(r?.opcion, r?.vencida)}</div>
+        <div class="row wrap"><span class="muted">Su respuesta</span><span class="spacer"></span>
+          ${tagsRespuesta(r, opcionesRonda())}</div>
         <p class="lead">${r?.justificacion ? esc(r.justificacion) : `<span class="muted">Se venció el tiempo sin justificación.</span>`}</p>
       </div>`,
 
@@ -1507,6 +1722,7 @@ function vistaEstudiante() {
         <h1 style="font-size:52px">+${pts ?? 0}</h1>
         <p class="lead">${esc(criterioDe(P)[pts ?? 0] || "")}</p>
       </div>
+      ${referenciaHTML()}
       ${rankingHTML(true)}
       ${esperando("Esperando", "Quien dicta la clase avanza a la ronda siguiente.")}`,
 
@@ -1575,13 +1791,13 @@ async function entrar() {
 function render() {
   if (P && U.borradorDe !== (P.rondaIndex ?? null)) {
     U.borradorDe = P.rondaIndex ?? null;
-    U.borrador = { opcion: null, justificacion: "" };
+    U.borrador = { elegidas: [], justificacion: "" };
   }
   const activo = document.activeElement;
   const foco = activo && activo.id ? { id: activo.id, pos: activo.selectionStart } : null;
 
   let html;
-  if (U.pantalla === "criterios") html = vistaCriterios();
+  if (U.pantalla === "actividad") html = vistaActividad();
   else if (U.pantalla === "crear") html = vistaCrear();
   else if (U.pantalla === "home" || !P) html = vistaHome();
   else html = { docente: vistaDocente, catedra: vistaCatedra, estudiante: vistaEstudiante }[U.rol]();
@@ -1661,37 +1877,82 @@ document.addEventListener("click", (ev) => {
     return render();
   }
   if (a === "equipos") { cfg.equipos = Number(b.dataset.n); return render(); }
-  if (a === "ir-criterios") { U.pantalla = "criterios"; U.editando = null; return render(); }
-  if (a === "guardar-criterios") {
+  if (a === "ir-actividad") { U.pantalla = "actividad"; U.editando = null; return render(); }
+  if (a === "nueva-actividad") {
+    cfg.tipo = nuevaActividad();
+    cfg.elegidos = [];
+    U.pantalla = "actividad"; U.editando = null;
+    return render();
+  }
+  if (a === "formato") {
+    TIPOS[cfg.tipo].formato = b.dataset.f;
+    return render();
+  }
+  if (a === "guardar-actividad") {
+    const t = TIPOS[cfg.tipo];
+    if (!t.nombre.trim()) { avisar("Ponele un nombre a la actividad."); return; }
+    t.corto = (t.corto || "").trim() || t.nombre.trim().slice(0, 14);
     U.pantalla = "crear"; render();
-    return guardarTipos();
+    return pase(guardarTipos(), "No pudimos guardar la actividad.");
+  }
+  if (a === "borrar-actividad") {
+    borrarActividad(cfg.tipo);
+    U.pantalla = "crear"; render();
+    return pase(guardarTipos(), "No pudimos borrar la actividad.");
   }
   if (a === "restaurar-criterios") {
-    TIPOS[cfg.tipo] = clonar(TIPOS_BASE[cfg.tipo]);
+    if (TIPOS_BASE[cfg.tipo]) TIPOS[cfg.tipo] = clonar(TIPOS_BASE[cfg.tipo]);
     render();
-    return guardarTipos();
+    return pase(guardarTipos(), "No pudimos restaurar la actividad.");
+  }
+
+  // ── respuesta correcta del ítem ──
+  if (a === "esperada") { U.nuevo.esperada = b.dataset.o || null; return render(); }
+  if (a === "agregar-opcion") {
+    U.nuevo.opciones = [...(U.nuevo.opciones || []), { id: "o" + uid(), texto: "", correcta: false }];
+    return render();
+  }
+  if (a === "quitar-opcion") {
+    U.nuevo.opciones = (U.nuevo.opciones || []).filter((o) => o.id !== b.dataset.o);
+    return render();
+  }
+  if (a === "correcta") {
+    U.nuevo.opciones = (U.nuevo.opciones || []).map((o) =>
+      o.id === b.dataset.o ? { ...o, correcta: !o.correcta } : o);
+    return render();
   }
   if (a === "nuevo-frag") {
-    U.editando = "nuevo"; U.nuevo = { titulo: "", pregunta: "", texto: "" };
+    U.editando = "nuevo";
+    U.nuevo = { titulo: "", pregunta: "", texto: "", esperada: null, opciones: [] };
     return render();
   }
   if (a === "editar-frag") {
     const f = BIBLIOTECA.find((x) => x.id === b.dataset.f);
     if (!f) return;
     U.editando = f.id;
-    U.nuevo = { titulo: f.titulo, pregunta: f.pregunta || "", texto: f.texto };
+    U.nuevo = {
+      titulo: f.titulo, pregunta: f.pregunta || "", texto: f.texto,
+      esperada: f.esperada || null,
+      opciones: (f.opciones || []).map((o) => ({ ...o }))
+    };
     return render();
   }
   if (a === "cancelar-frag") { U.editando = null; return render(); }
   if (a === "guardar-frag") {
     if (!U.nuevo.texto.trim()) { U.error = ""; return; }
     const nuevoId = U.editando === "nuevo";
+    const formato = formatoDe(TIPOS[cfg.tipo]);
+    const opciones = (U.nuevo.opciones || [])
+      .map((o) => ({ id: o.id, texto: (o.texto || "").trim(), correcta: !!o.correcta }))
+      .filter((o) => o.texto);
     const f = {
       id: nuevoId ? uid() : U.editando,
       tipo: cfg.tipo,
-      titulo: U.nuevo.titulo.trim() || "Fragmento sin título",
+      titulo: U.nuevo.titulo.trim() || "Ítem sin título",
       pregunta: U.nuevo.pregunta.trim(),
-      texto: U.nuevo.texto.trim()
+      texto: U.nuevo.texto.trim(),
+      esperada: formato === "opciones" ? null : (U.nuevo.esperada || null),
+      opciones: formato === "opciones" ? opciones : []
     };
     U.editando = null;
     if (nuevoId && !cfg.elegidos.includes(f.id)) cfg.elegidos.push(f.id);
@@ -1714,11 +1975,20 @@ document.addEventListener("click", (ev) => {
 
   // --- estudiante ---
   // Lo que el equipo elige y escribe queda en el celular hasta que envía.
-  if (a === "opcion") { U.borrador.opcion = b.dataset.o; return render(); }
+  if (a === "opcion") {
+    const id = b.dataset.o;
+    const ya = U.borrador.elegidas.includes(id);
+    if (variasRonda()) {
+      U.borrador.elegidas = ya ? U.borrador.elegidas.filter((x) => x !== id) : [...U.borrador.elegidas, id];
+    } else {
+      U.borrador.elegidas = ya ? [] : [id];
+    }
+    return render();
+  }
   if (a === "enviar") {
-    if (!U.borrador.opcion) return;
+    if (!U.borrador.elegidas.length && opcionesRonda().length) return;
     return guardarRespuesta(U.miEquipo, {
-      opcion: U.borrador.opcion, justificacion: U.borrador.justificacion, enviada: true, vencida: false });
+      elegidas: U.borrador.elegidas, justificacion: U.borrador.justificacion, enviada: true, vencida: false });
   }
 
   // --- barra de demo (solo Etapa 1) ---
@@ -1737,11 +2007,16 @@ document.addEventListener("input", (ev) => {
   else if (id === "n-texto") U.nuevo.texto = v;
   else if (id === "nombre") U.nombreDraft = v;
   else if (id === "c-nombre") TIPOS[cfg.tipo].nombre = v;
+  else if (id === "c-corto") TIPOS[cfg.tipo].corto = v;
   else if (id === "c-consigna") TIPOS[cfg.tipo].consigna = v;
   else if (id === "c-2") TIPOS[cfg.tipo].criterio[2] = v;
   else if (id === "c-1") TIPOS[cfg.tipo].criterio[1] = v;
   else if (id === "c-0") TIPOS[cfg.tipo].criterio[0] = v;
   else if (id === "justi") U.borrador.justificacion = v;
+  else if (ev.target.dataset && ev.target.dataset.op) {
+    U.nuevo.opciones = (U.nuevo.opciones || []).map((o) =>
+      o.id === ev.target.dataset.op ? { ...o, texto: v } : o);
+  }
 });
 
 // Se dibuja primero y se conecta después: nadie mira una pantalla en blanco
@@ -1768,7 +2043,7 @@ nubeLista = (MODO_NUBE
     U.nubeCaida = true;
     return cargarBiblioteca().catch(() => {});
   })
-  .then(render);
+  .then(() => { U.cargando = false; render(); });
 </script>
 </body>
 </html>
