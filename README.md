@@ -1,15 +1,16 @@
 # Dictamen · juego de cátedra
 
 Juego educativo en tiempo real para actividades de cátedra universitaria.
-Equipos leen un fragmento, dictaminan entre tres opciones y justifican;
-cátedra puntúa cada respuesta.
+Equipos reciben un ítem, eligen una respuesta y la justifican; cátedra puntúa
+la justificación. La actividad y el formato de respuesta los define la
+cátedra: evaluación de fragmentos, verdadero o falso, opción múltiple.
 
-## Estado: funcional, a falta de la configuración de Firebase
+## Estado: en uso
 
 `index.html` es la aplicación entera. Se abre en cualquier navegador, de
 celular o de computadora, y no necesita instalar nada.
 
-Funciona en dos modalidades, según haya o no configuración de base de datos:
+Está conectada a la base de datos de la cátedra. Funciona en dos modalidades:
 
 - **Modo nube** (con `FIREBASE_CONFIG` completo): la partida vive en
   Firestore y cada dispositivo se actualiza solo.
@@ -21,9 +22,16 @@ Funciona en dos modalidades, según haya o no configuración de base de datos:
 
 - Entrada con código de sala; PIN aparte para el equipo de cátedra
 - Sorteo de equipos al entrar, entre dos y ocho, equilibrando integrantes
-- Biblioteca de fragmentos que se guarda y se reusa entre clases
-- Criterios de puntaje editables por tipo de actividad, guardados para toda
-  la cátedra; cada partida se lleva su copia al crearse
+- Actividades propias: las tres de fábrica se editan y se pueden crear otras
+  desde la aplicación, con nombre, consigna y criterio propios
+- Tres formatos de respuesta: dictamen (los tres fallos), verdadero o falso,
+  y opción múltiple con opciones escritas por quien carga cada ítem, marcando
+  una o varias correctas
+- Respuesta esperada por ítem, que cátedra ve como referencia al puntar,
+  junto con un aviso de si el equipo coincidió
+- Biblioteca de ítems que se guarda y se reusa entre clases
+- Criterios de puntaje editables por actividad, guardados para toda la
+  cátedra; cada partida se lleva su copia al crearse
 - Las tres interfaces en las cinco fases, sincronizadas entre dispositivos
 - Cronómetro con envío automático de la respuesta al vencer el tiempo
 - Puntajes +2 / +1 / 0, ranking acumulado y varias rondas seguidas
