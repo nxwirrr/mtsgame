@@ -251,6 +251,10 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
 }
 .sbtn small{display:block;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.04em}
 .sbtn[aria-pressed=true]{background:var(--catedra);border-color:var(--catedra);color:#fff}
+.sbtn.sugerido[aria-pressed=true]{
+  background:var(--catedra-soft);color:var(--catedra);
+  border-color:var(--catedra);border-style:dashed;
+}
 .sbtn[aria-pressed=true] small{color:#fff;opacity:.85}
 
 .rank{display:flex;flex-direction:column;gap:8px}
@@ -309,6 +313,26 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
 .chip[aria-pressed=true]{border-color:var(--docente);background:var(--docente-soft);color:var(--docente)}
 .chip.mas{font-size:19px;font-weight:700;padding:9px 16px;color:var(--docente);border-style:dashed}
 
+/* ---------- interruptores ---------- */
+.interruptor{
+  display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;
+  border:1.5px solid var(--line-2);background:#fff;border-radius:var(--r-md);padding:14px;
+}
+.interruptor[aria-pressed=true]{border-color:var(--docente);background:var(--docente-soft)}
+.interruptor[disabled]{opacity:.55}
+.interruptor .llave{
+  flex:0 0 auto;width:42px;height:25px;border-radius:99px;background:var(--line-2);
+  position:relative;transition:background .15s ease;margin-top:2px;
+}
+.interruptor .llave::after{
+  content:"";position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;
+  background:#fff;transition:transform .15s ease;box-shadow:0 1px 3px rgba(0,0,0,.25);
+}
+.interruptor[aria-pressed=true] .llave{background:var(--docente)}
+.interruptor[aria-pressed=true] .llave::after{transform:translateX(17px)}
+.interruptor .t{display:block;font-weight:700;font-size:15px;letter-spacing:-.01em}
+.interruptor .d{display:block;font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4}
+
 /* ---------- opciones de un ítem ---------- */
 .fila-opcion{display:flex;align-items:center;gap:8px}
 .fila-opcion .op-texto{flex:1;padding:10px 12px;border-radius:var(--r-sm)}
@@ -318,6 +342,9 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
 }
 .tilde[aria-pressed=true]{background:var(--si);border-color:var(--si)}
 .fila-opcion .quitar{min-height:34px;font-size:12px;padding:0 4px;flex:0 0 auto}
+
+.destacada{border-color:var(--si);background:var(--si-soft)}
+.destacada .kicker{color:var(--si)}
 
 .marca{
   font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
@@ -416,6 +443,12 @@ const FORMATOS = {
     nombre: "Opción múltiple",
     ayuda: "Las opciones se escriben en cada ítem; podés marcar una o varias correctas",
     fijas: null
+  },
+  abierta: {
+    nombre: "Respuesta abierta",
+    ayuda: "Sin opciones: el equipo escribe. Podés dejar una respuesta modelo como referencia",
+    fijas: null,
+    sinOpciones: true
   }
 };
 const FORMATO_IDS = Object.keys(FORMATOS);
@@ -426,6 +459,7 @@ const formatoDe = (algo) => FORMATOS[algo?.formato] ? algo.formato : "dictamen";
 // Las opciones que se le muestran al equipo para un ítem dado.
 function opcionesVisibles(item, formato) {
   const f = FORMATOS[formato] || FORMATOS.dictamen;
+  if (f.sinOpciones) return [];
   if (f.fijas) return f.fijas;
   return (item?.opciones || []).map((o, i) => ({
     id: o.id, letra: LETRAS[i] || "·", clase: "neutro", texto: o.texto
@@ -434,7 +468,7 @@ function opcionesVisibles(item, formato) {
 
 // Cuál o cuáles son las correctas, para que cátedra las tenga de referencia.
 function correctasDe(item, formato) {
-  if (!item) return [];
+  if (!item || formato === "abierta") return [];
   if (formato === "opciones") return (item.opciones || []).filter((o) => o.correcta).map((o) => o.id);
   return item.esperada ? [item.esperada] : [];
 }
@@ -449,6 +483,8 @@ const TIPOS_BASE = {
     corto: "Fragmento",
     consigna: "Leé el fragmento y dictaminá.",
     formato: "dictamen",
+    pedirJustificacion: true,
+    sugerirPuntaje: false,
     criterio: {
       2: "Fundamenta con criterios del texto y justifica el fallo.",
       1: "Identifica el problema pero la justificación es general.",
@@ -460,6 +496,8 @@ const TIPOS_BASE = {
     corto: "Estado",
     consigna: "¿El párrafo construye estado de la cuestión?",
     formato: "dictamen",
+    pedirJustificacion: true,
+    sugerirPuntaje: false,
     criterio: {
       2: "Detecta si hay articulación entre autores y recorte al problema.",
       1: "Nota que algo falta pero no precisa qué.",
@@ -471,6 +509,8 @@ const TIPOS_BASE = {
     corto: "Objetivos",
     consigna: "¿El objetivo está bien formulado?",
     formato: "dictamen",
+    pedirJustificacion: true,
+    sugerirPuntaje: false,
     criterio: {
       2: "Evalúa verbo, alcance y correspondencia con el problema.",
       1: "Revisa la forma pero no la correspondencia con el problema.",
@@ -490,6 +530,15 @@ const refrescarIds = () => { TIPO_IDS = Object.keys(TIPOS); };
 // de una clase, la partida en curso no cambia de reglas a mitad de camino.
 const criterioDe = (partida) => partida?.criterio || TIPOS[partida?.tipo]?.criterio || TIPOS_BASE.fragmento.criterio;
 const nombreTipoDe = (partida) => partida?.tipoNombre || TIPOS[partida?.tipo]?.nombre || "Actividad";
+
+/* La respuesta abierta necesita la justificación: sin ella el equipo no
+   respondería nada. En los demás formatos es opcional. */
+function pideJustificacion(algo) {
+  if (formatoDe(algo) === "abierta") return true;
+  const v = algo?.pedirJustificacion;
+  return v === undefined ? true : !!v;
+}
+const sugierePuntaje = (algo) => !!algo?.sugerirPuntaje;
 
 /* La biblioteca se guarda: en la nube, en la colección "biblioteca"; sin
    nube, en el propio navegador. Así los fragmentos se reusan clase a clase.
@@ -545,6 +594,7 @@ let db = null, auth = null, miUid = null, nubeLista = null;
 let J = [];              // jugadores conectados a la sala
 let R = {};              // respuestas: R["r0"]["e1"] = { opcion, justificacion, ... }
 let PT = {};             // puntajes:   PT["r0"]["e1"] = 2
+let SUG = {};            // cuáles de esos puntajes son sugerencias
 let cortar = [];         // cómo dejar de escuchar la sala anterior
 
 const equiposBase = (cuantos) =>
@@ -594,7 +644,7 @@ function escucharSala(codigo) {
     if (!d.exists()) {
       // La sala se cerró: cortamos todas las escuchas antes de que fallen.
       dejarDeEscuchar();
-      P = null; R = {}; PT = {}; J = [];
+      P = null; R = {}; PT = {}; SUG = {}; J = [];
       U.pantalla = "home"; U.rol = null; U.pin = "";
       U.error = "La partida se cerró.";
       olvidarSesion();
@@ -627,8 +677,12 @@ function escucharSala(codigo) {
     }));
   }
   cortar.push(window.FB.onSnapshot(refPuntajes(codigo), (snap) => {
-    PT = {};
-    snap.forEach((d) => { const x = d.data(); (PT[x.ronda] ||= {})[x.equipoId] = x.puntaje; });
+    PT = {}; SUG = {};
+    snap.forEach((d) => {
+      const x = d.data();
+      (PT[x.ronda] ||= {})[x.equipoId] = x.puntaje;
+      (SUG[x.ronda] ||= {})[x.equipoId] = !!x.sugerido;
+    });
     render();
   }));
 }
@@ -778,6 +832,8 @@ async function cargarTipos() {
         corto: a.corto || (a.nombre || "Actividad").slice(0, 12),
         consigna: a.consigna || "",
         formato: FORMATOS[a.formato] ? a.formato : "dictamen",
+        pedirJustificacion: a.pedirJustificacion === undefined ? true : !!a.pedirJustificacion,
+        sugerirPuntaje: !!a.sugerirPuntaje,
         criterio: { 2: a.criterio?.[2] || "", 1: a.criterio?.[1] || "", 0: a.criterio?.[0] || "" },
         propia: !!a.propia
       };
@@ -802,6 +858,7 @@ async function guardarTipos() {
   const lista = TIPO_IDS.map((t) => ({
     id: t, nombre: TIPOS[t].nombre, corto: TIPOS[t].corto, consigna: TIPOS[t].consigna,
     formato: formatoDe(TIPOS[t]), propia: !!TIPOS[t].propia,
+    pedirJustificacion: pideJustificacion(TIPOS[t]), sugerirPuntaje: sugierePuntaje(TIPOS[t]),
     criterio: { 2: TIPOS[t].criterio[2], 1: TIPOS[t].criterio[1], 0: TIPOS[t].criterio[0] }
   }));
   if (MODO_NUBE && db) await window.FB.setDoc(window.FB.doc(db, "config", "tipos"), { lista });
@@ -813,6 +870,7 @@ function nuevaActividad() {
   const id = "a" + uid();
   TIPOS[id] = {
     nombre: "", corto: "", consigna: "", formato: "dictamen", propia: true,
+    pedirJustificacion: true, sugerirPuntaje: false,
     criterio: { 2: "", 1: "", 0: "" }
   };
   refrescarIds();
@@ -867,6 +925,77 @@ async function borrarFragmento(id) {
   else guardarBibliotecaLocal();
 }
 
+/* Resumen de la partida en un archivo que se abre con cualquier planilla:
+   una fila por equipo y por ronda, con lo que eligió, lo que escribió y el
+   puntaje. Queda registro de la clase. */
+function filasResumen() {
+  const formato = formatoDe(P);
+  const filas = [["Ronda", "Ítem", "Equipo", "Integrantes", "Elección",
+                  pideJustificacion(P) ? "Justificación" : "—", "Puntaje", "Esperada", "Coincide"]];
+  (P.rondas || []).forEach((item, i) => {
+    const k = "r" + i;
+    const opciones = opcionesVisibles(item, formato);
+    const correctas = correctasDe(item, formato);
+    const textoDe = (id) => (opciones.find((o) => o.id === id) || {}).texto || id;
+    const esperada = formato === "abierta" ? (item.modelo || "") : correctas.map(textoDe).join(" · ");
+    (P.equipos || []).forEach((e) => {
+      const r = (R[k] || {})[e.id];
+      if (!r) return;
+      const elegidas = elegidasDe(r);
+      const pj = (PT[k] || {})[e.id];
+      const coincide = correctas.length
+        ? (elegidas.length === correctas.length && correctas.every((c) => elegidas.includes(c)) ? "sí" : "no")
+        : "";
+      filas.push([i + 1, item.titulo || "", e.nombre, (e.integrantes || []).join(", "),
+                  elegidas.map(textoDe).join(" · "), r.justificacion || "",
+                  pj === undefined ? "" : pj, esperada, coincide]);
+    });
+  });
+  return filas;
+}
+
+function descargarResumen() {
+  const filas = filasResumen();
+  if (filas.length < 2) { avisar("Todavía no hay respuestas para guardar."); return; }
+  const csv = "\uFEFF" + filas
+    .map((f) => f.map((c) => '"' + String(c).replaceAll('"', '""') + '"').join(","))
+    .join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "dictamen-" + P.codigo + "-" + new Date().toISOString().slice(0, 10) + ".csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/* La justificación mejor puntuada de la ronda se guarda en la partida al
+   revelar. Va ahí y no se deduce en cada celular porque un equipo solo puede
+   leer su propia respuesta: si no, nadie más que cátedra la vería. */
+function mejorJustificacion() {
+  if (!pideJustificacion(P)) return null;
+  let mejor = null;
+  equiposActivos().forEach((e) => {
+    const r = respuestaDe(e.id);
+    const pj = puntajesRonda()[e.id];
+    if (!r || !r.justificacion || pj === undefined) return;
+    if (!mejor || pj > mejor.puntaje) {
+      mejor = { equipo: e.id, nombre: e.nombre, texto: r.justificacion, puntaje: pj };
+    }
+  });
+  return mejor && mejor.puntaje > 0 ? mejor : null;
+}
+
+function destacadaHTML() {
+  const d = P.destacada;
+  if (!d || !d.texto) return "";
+  return `<div class="card destacada stack-sm">
+    <p class="kicker">La justificación que se llevó +${d.puntaje} · ${esc(d.nombre || "")}</p>
+    <p class="lead" style="color:var(--ink)">${esc(d.texto)}</p>
+  </div>`;
+}
+
 /* Respuestas y puntajes viven en documentos aparte, uno por equipo y por
    ronda. Así las reglas de seguridad pueden decir "cada equipo escribe solo
    su respuesta" y "el puntaje lo escribe solo cátedra", algo imposible si
@@ -881,13 +1010,14 @@ function guardarRespuesta(equipoId, datos) {
   render();
 }
 
-function guardarPuntaje(equipoId, puntaje) {
+function guardarPuntaje(equipoId, puntaje, sugerido = false) {
   const k = claveRonda();
   if (MODO_NUBE && db && P) {
     return pase(window.FB.setDoc(window.FB.doc(refPuntajes(P.codigo), k + "_" + equipoId),
-      { ronda: k, equipoId, puntaje }), "No pudimos guardar el puntaje. Revisá la conexión.");
+      { ronda: k, equipoId, puntaje, sugerido }), "No pudimos guardar el puntaje. Revisá la conexión.");
   }
   (PT[k] ||= {})[equipoId] = puntaje;
+  (SUG[k] ||= {})[equipoId] = sugerido;
   render();
 }
 
@@ -994,6 +1124,7 @@ async function crearPartida() {
     .map((f) => ({
       titulo: f.titulo, pregunta: f.pregunta || "", texto: f.texto,
       esperada: f.esperada || null,
+      modelo: f.modelo || "",
       opciones: (f.opciones || []).map((o) => ({ id: o.id, texto: o.texto, correcta: !!o.correcta }))
     }));
   if (!rondas.length) { U.error = "Elegí al menos un fragmento."; return render(); }
@@ -1006,6 +1137,8 @@ async function crearPartida() {
     tipo: cfg.tipo,
     tipoNombre: TIPOS[cfg.tipo].nombre,
     formato: formatoDe(TIPOS[cfg.tipo]),
+    pedirJustificacion: pideJustificacion(TIPOS[cfg.tipo]),
+    sugerirPuntaje: sugierePuntaje(TIPOS[cfg.tipo]),
     criterio: clonar(TIPOS[cfg.tipo].criterio),
     segundos: cfg.segundos,
     cantidadEquipos: cfg.equipos,
@@ -1034,7 +1167,7 @@ async function crearPartida() {
   const cuantos = partida.equipos.length;
   NOMBRES_DEMO.slice(0, cuantos * 3 - 1).forEach((nom, i) => partida.equipos[i % cuantos].integrantes.push(nom));
   P = partida;
-  R = {}; PT = {};
+  R = {}; PT = {}; SUG = {};
   U.rol = "docente";
   U.miEquipo = "e2";            // en la demo, "yo estudiante" soy del Equipo 2
   U.pantalla = "partida";
@@ -1046,9 +1179,18 @@ const opcionesRonda = () => opcionesVisibles(fragmentoActual(), formatoDe(P));
 const correctasRonda = () => correctasDe(fragmentoActual(), formatoDe(P));
 const variasRonda = () => permiteVarias(fragmentoActual(), formatoDe(P));
 const elegidasDe = (r) => (r && (r.elegidas || (r.opcion ? [r.opcion] : []))) || [];
+
+/* Hace falta elegir algo si hay opciones, y escribir algo si no hay. */
+function listoParaEnviar() {
+  const hayOpciones = opcionesRonda().length > 0;
+  if (hayOpciones && !U.borrador.elegidas.length) return false;
+  if (!hayOpciones && !U.borrador.justificacion.trim()) return false;
+  return true;
+}
 const fragmentoActual = () => P.rondas[P.rondaIndex] || null;
 const respuestasRonda = () => R[claveRonda()] || {};
 const puntajesRonda = () => PT[claveRonda()] || {};
+const esSugerido = (eq) => !!(SUG[claveRonda()] || {})[eq];
 const respuestaDe = (eq) => respuestasRonda()[eq] || null;
 
 function totalDe(equipoId) {
@@ -1080,11 +1222,11 @@ function iniciarRonda() {
   const k = claveRonda();
   cerrando = false;
   vencimientoAtendido = null;
-  delete R[k]; delete PT[k];         // si se repite la ronda, arranca limpia
+  delete R[k]; delete PT[k]; delete SUG[k];         // si se repite la ronda, arranca limpia
   const marca = MODO_NUBE && window.FB ? window.FB.serverTimestamp() : null;
   set(marca
     ? { fase: "ronda", finRonda: Date.now() + P.segundos * 1000, inicioServidor: marca }
-    : { fase: "ronda", finRonda: Date.now() + P.segundos * 1000 });
+    : { fase: "ronda", finRonda: Date.now() + P.segundos * 1000, destacada: null });
   arrancarLatido();
   if (!MODO_NUBE) demoOtrosEquiposResponden();
 }
@@ -1152,7 +1294,22 @@ function cerrarRonda() {
       elegidas: elegidasDe(r), justificacion: r?.justificacion ?? "", enviada: true, vencida: true });
   });
   set({ fase: "puntuando", finRonda: null });
-  return Promise.all(pendientes.filter(Boolean));
+
+  /* Si la actividad lo pide, los equipos que acertaron quedan con +2 puesto,
+     marcado como sugerencia. Cátedra lo cambia si la justificación no lo
+     merece; a los que no acertaron no les sugerimos nada, porque una
+     justificación buena con la opción equivocada puede valer +1. */
+  const sugerencias = [];
+  if (sugierePuntaje(P) && correctasRonda().length) {
+    const correctas = correctasRonda();
+    equiposActivos().forEach((e) => {
+      if (puntajesRonda()[e.id] !== undefined) return;
+      const elegidas = elegidasDe(respuestaDe(e.id));
+      const iguales = elegidas.length === correctas.length && correctas.every((c) => elegidas.includes(c));
+      if (iguales) sugerencias.push(guardarPuntaje(e.id, 2, true));
+    });
+  }
+  return Promise.all([...pendientes, ...sugerencias].filter(Boolean));
 }
 
 function siguienteRonda() {
@@ -1242,6 +1399,14 @@ function tagsRespuesta(r, opciones) {
 
 // Referencia para cátedra: qué se esperaba y si el equipo coincidió.
 function referenciaHTML() {
+  const item = fragmentoActual();
+  if (formatoDe(P) === "abierta") {
+    if (!item?.modelo) return "";
+    return `<div class="card flat stack-sm">
+      <p class="kicker">Respuesta modelo</p>
+      <p class="lead">${esc(item.modelo)}</p>
+    </div>`;
+  }
   const correctas = correctasRonda();
   if (!correctas.length) return "";
   const opciones = opcionesRonda();
@@ -1297,10 +1462,15 @@ function panelPuntaje(editable) {
         ${coincideHTML(r)}
         ${tagsRespuesta(r, opcionesRonda())}
       </div>
-      <p class="lead">${r.justificacion ? esc(r.justificacion) : `<span class="muted">Sin justificación${r.vencida ? " (se venció el tiempo)" : ""}.</span>`}</p>
+      ${pideJustificacion(P) ? `<p class="lead">${r.justificacion
+        ? esc(r.justificacion)
+        : `<span class="muted">Sin justificación${r.vencida ? " (se venció el tiempo)" : ""}.</span>`}</p>` : ""}
       ${editable ? `<div class="scorebtns">
-        ${[2,1,0].map((n) => `<button class="sbtn" data-a="puntuar" data-eq="${e.id}" data-n="${n}" aria-pressed="${p === n}">+${n}</button>`).join("")}
-      </div>` : `<p class="muted">${p === undefined ? "Sin puntuar todavía" : "Puntaje: +" + p}</p>`}
+        ${[2,1,0].map((n) => `<button class="sbtn ${esSugerido(e.id) && p === n ? "sugerido" : ""}"
+          data-a="puntuar" data-eq="${e.id}" data-n="${n}" aria-pressed="${p === n}">+${n}</button>`).join("")}
+      </div>
+      ${esSugerido(e.id) ? `<p class="muted" style="font-size:12px">Sugerido porque coincide. Confirmá o cambialo.</p>` : ""}`
+      : `<p class="muted">${p === undefined ? "Sin puntuar todavía" : "Puntaje: +" + p}</p>`}
     </div>`;
   }).join("")}`;
 }
@@ -1376,7 +1546,13 @@ function vistaCrear() {
 
   // Respuesta correcta: fija para dictamen y verdadero o falso; escrita a mano
   // en opción múltiple, donde se marca cuál o cuáles valen.
-  const bloqueCorrecta = fijas ? `
+  const bloqueCorrecta = formato === "abierta" ? `
+    <label class="field">
+      <span class="label">Respuesta modelo · referencia para cátedra</span>
+      <textarea id="n-modelo" style="min-height:78px"
+        placeholder="Opcional: qué debería decir una buena respuesta">${esc(U.nuevo.modelo || "")}</textarea>
+    </label>`
+  : fijas ? `
     <div>
       <span class="label">Respuesta esperada · referencia para cátedra</span>
       <div class="chips">
@@ -1413,8 +1589,12 @@ function vistaCrear() {
       <span class="spacer"></span>
       <button class="btn sm docente" data-a="guardar-frag">Guardar</button>
     </div>
-    ${editado ? `<button class="btn link" data-a="borrar-frag" data-f="${editado.id}"
-        style="color:var(--no)">Borrar este ítem de la biblioteca</button>` : ""}
+    ${editado ? `<div class="row">
+        <button class="btn link" data-a="duplicar-frag" data-f="${editado.id}">Duplicar este ítem</button>
+        <span class="spacer"></span>
+        <button class="btn link" data-a="borrar-frag" data-f="${editado.id}"
+          style="color:var(--no)">Borrar</button>
+      </div>` : ""}
   </div>`;
 
   return `<div class="screen">
@@ -1530,7 +1710,26 @@ function vistaActividad() {
       </div>
       ${enUso ? `<p class="muted" style="font-size:12px">Esta actividad ya tiene ${enUso} ítem${enUso === 1 ? "" : "s"}.
         Si cambiás el formato, revisalos: las opciones que cargaste se conservan, pero puede que ya no correspondan.</p>` : ""}
-      <p class="muted" style="font-size:12px">La justificación escrita se pide siempre: es lo que cátedra puntúa.</p>
+    </div>
+
+    <div class="card stack">
+      <button class="interruptor" data-a="switch-justi"
+        aria-pressed="${pideJustificacion(t)}" ${formatoDe(t) === "abierta" ? "disabled" : ""}>
+        <span class="llave"></span>
+        <span>
+          <span class="t">Pedir justificación escrita</span>
+          <span class="d">${formatoDe(t) === "abierta"
+            ? "En respuesta abierta es obligatoria: es la respuesta."
+            : "Apagalo para un control de lectura rápido, sin texto."}</span>
+        </span>
+      </button>
+      <button class="interruptor" data-a="switch-sugerir" aria-pressed="${sugierePuntaje(t)}">
+        <span class="llave"></span>
+        <span>
+          <span class="t">Sugerir +2 cuando la respuesta coincide</span>
+          <span class="d">Al cerrar la ronda, los equipos que acertaron quedan con +2 puesto. Cátedra lo cambia si la justificación no lo merece.</span>
+        </span>
+      </button>
     </div>
 
     <div class="card stack">
@@ -1543,6 +1742,7 @@ function vistaActividad() {
     </div>
 
     <button class="btn docente" data-a="guardar-actividad">Guardar actividad</button>
+    <button class="btn ghost" data-a="duplicar-actividad">Duplicar esta actividad</button>
     ${t.propia
       ? `<button class="btn link" data-a="borrar-actividad" style="color:var(--no)">
            Borrar esta actividad y sus ${enUso} ítem${enUso === 1 ? "" : "s"}</button>`
@@ -1605,6 +1805,7 @@ function vistaDocente() {
       ${pasos()}
       <div class="card stack"><h2>Puntaje revelado</h2>
         <p class="lead">Todas las pantallas están viendo el resultado.</p></div>
+      ${destacadaHTML()}
       ${rankingHTML(false)}
       <button class="btn docente" data-a="siguiente">
         ${P.rondaIndex + 1 < P.rondas.length ? "Siguiente ronda" : "Terminar partida"}</button>`,
@@ -1613,6 +1814,7 @@ function vistaDocente() {
       <div class="card stack"><h1>Partida terminada</h1>
         <p class="lead">${P.rondas.length} ronda${P.rondas.length === 1 ? "" : "s"} · ${esc(nombreTipoDe(P))}</p></div>
       ${rankingHTML(false)}
+      <button class="btn docente" data-a="descargar">Descargar el resumen de la partida</button>
       <button class="btn ghost" data-a="home">Volver al inicio</button>
       ${MODO_NUBE ? `<button class="btn link" data-a="cerrar-partida" style="color:var(--no)">
         Cerrar la partida y borrar sus datos</button>` : ""}`
@@ -1646,6 +1848,7 @@ function vistaCatedra() {
 
     revelado: () => `${pasos()}
       <div class="card stack"><h2>Puntaje revelado</h2></div>
+      ${destacadaHTML()}
       ${rankingHTML(false)}
       ${esperando("Esperando", "Quien dicta la clase avanza a la ronda siguiente.")}`,
 
@@ -1691,21 +1894,20 @@ function vistaEstudiante() {
         <div class="card stack">${timerHTML()}
           <p class="muted">Al vencer el tiempo se envía sola, aunque esté incompleta.</p></div>
         ${fragmentoHTML(f)}
-        <div class="card stack">
+        ${opciones.length ? `<div class="card stack">
           <span class="label">${esc(consigna)}</span>
           ${varias ? `<p class="muted" style="margin:-2px 0 2px">Pueden marcar más de una.</p>` : ""}
-          ${opciones.length ? `<div class="opts">${opciones.map((o) => `
+          <div class="opts">${opciones.map((o) => `
             <button class="opt ${o.clase}" data-a="opcion" data-o="${o.id}" aria-pressed="${elegidas.includes(o.id)}">
               <span class="badge">${o.letra}</span><span class="txt">${esc(o.texto)}</span>
-            </button>`).join("")}</div>`
-          : `<p class="muted">Esta pregunta quedó sin opciones cargadas. Escriban la respuesta abajo.</p>`}
-        </div>
-        <label class="field card">
-          <span class="label">¿Por qué?</span>
-          <textarea id="justi" maxlength="1500" placeholder="Escriban la justificación del equipo...">${esc(U.borrador.justificacion)}</textarea>
-        </label>
-        <button class="btn equipo" data-a="enviar"
-          ${elegidas.length || !opciones.length ? "" : "disabled"}>Enviar respuesta</button>`;
+            </button>`).join("")}</div>
+        </div>` : ""}
+        ${pideJustificacion(P) ? `<label class="field card">
+          <span class="label">${formatoDe(P) === "abierta" ? "Su respuesta" : "¿Por qué?"}</span>
+          <textarea id="justi" maxlength="1500"
+            placeholder="${formatoDe(P) === "abierta" ? "Escriban la respuesta del equipo..." : "Escriban la justificación del equipo..."}">${esc(U.borrador.justificacion)}</textarea>
+        </label>` : ""}
+        <button class="btn equipo" data-a="enviar" ${listoParaEnviar() ? "" : "disabled"}>Enviar respuesta</button>`;
     },
 
     puntuando: () => `${pasos()}
@@ -1723,6 +1925,7 @@ function vistaEstudiante() {
         <p class="lead">${esc(criterioDe(P)[pts ?? 0] || "")}</p>
       </div>
       ${referenciaHTML()}
+      ${destacadaHTML()}
       ${rankingHTML(true)}
       ${esperando("Esperando", "Quien dicta la clase avanza a la ronda siguiente.")}`,
 
@@ -1851,9 +2054,10 @@ document.addEventListener("click", (ev) => {
     cfg = { tipo: "estado", segundos: 90, equipos: 4, elegidos: ejemplos.map((f) => f.id) };
     return crearPartida();
   }
+  if (a === "descargar") return descargarResumen();
   if (a === "cerrar-partida") {
     const copia = P;
-    P = null; R = {}; PT = {}; U.pantalla = "home"; U.rol = null; U.pin = "";
+    P = null; R = {}; PT = {}; SUG = {}; U.pantalla = "home"; U.rol = null; U.pin = "";
     render();
     return cerrarPartida(copia);
   }
@@ -1887,6 +2091,35 @@ document.addEventListener("click", (ev) => {
   if (a === "formato") {
     TIPOS[cfg.tipo].formato = b.dataset.f;
     return render();
+  }
+  if (a === "switch-justi") {
+    TIPOS[cfg.tipo].pedirJustificacion = !pideJustificacion(TIPOS[cfg.tipo]);
+    return render();
+  }
+  if (a === "switch-sugerir") {
+    TIPOS[cfg.tipo].sugerirPuntaje = !sugierePuntaje(TIPOS[cfg.tipo]);
+    return render();
+  }
+  if (a === "duplicar-actividad") {
+    const original = TIPOS[cfg.tipo];
+    const id = "a" + uid();
+    TIPOS[id] = { ...clonar(original), nombre: (original.nombre || "Actividad") + " (copia)",
+                  corto: (original.corto || "").slice(0, 10) + " 2", propia: true };
+    refrescarIds();
+    cfg.tipo = id; cfg.elegidos = [];
+    render();
+    return pase(guardarTipos(), "No pudimos duplicar la actividad.");
+  }
+  if (a === "duplicar-frag") {
+    const f = BIBLIOTECA.find((x) => x.id === b.dataset.f);
+    if (!f) return;
+    const copia = { ...clonar(f), id: uid(), titulo: f.titulo + " (copia)" };
+    U.editando = copia.id;
+    U.nuevo = { titulo: copia.titulo, pregunta: copia.pregunta || "", texto: copia.texto,
+                esperada: copia.esperada || null, modelo: copia.modelo || "",
+                opciones: (copia.opciones || []).map((o) => ({ ...o, id: "o" + uid() })) };
+    render();
+    return pase(guardarFragmento({ ...copia, opciones: U.nuevo.opciones }), "No pudimos duplicar el ítem.");
   }
   if (a === "guardar-actividad") {
     const t = TIPOS[cfg.tipo];
@@ -1923,7 +2156,7 @@ document.addEventListener("click", (ev) => {
   }
   if (a === "nuevo-frag") {
     U.editando = "nuevo";
-    U.nuevo = { titulo: "", pregunta: "", texto: "", esperada: null, opciones: [] };
+    U.nuevo = { titulo: "", pregunta: "", texto: "", esperada: null, modelo: "", opciones: [] };
     return render();
   }
   if (a === "editar-frag") {
@@ -1933,6 +2166,7 @@ document.addEventListener("click", (ev) => {
     U.nuevo = {
       titulo: f.titulo, pregunta: f.pregunta || "", texto: f.texto,
       esperada: f.esperada || null,
+      modelo: f.modelo || "",
       opciones: (f.opciones || []).map((o) => ({ ...o }))
     };
     return render();
@@ -1951,7 +2185,8 @@ document.addEventListener("click", (ev) => {
       titulo: U.nuevo.titulo.trim() || "Ítem sin título",
       pregunta: U.nuevo.pregunta.trim(),
       texto: U.nuevo.texto.trim(),
-      esperada: formato === "opciones" ? null : (U.nuevo.esperada || null),
+      esperada: formato === "opciones" || formato === "abierta" ? null : (U.nuevo.esperada || null),
+      modelo: formato === "abierta" ? (U.nuevo.modelo || "").trim() : "",
       opciones: formato === "opciones" ? opciones : []
     };
     U.editando = null;
@@ -1969,7 +2204,7 @@ document.addEventListener("click", (ev) => {
   // --- control de la partida ---
   if (a === "iniciar") return iniciarRonda();
   if (a === "cortar") return cerrarRonda();
-  if (a === "revelar") return set({ fase: "revelado" });
+  if (a === "revelar") return set({ fase: "revelado", destacada: mejorJustificacion() });
   if (a === "siguiente") return siguienteRonda();
   if (a === "puntuar") return guardarPuntaje(b.dataset.eq, Number(b.dataset.n));
 
@@ -1986,14 +2221,14 @@ document.addEventListener("click", (ev) => {
     return render();
   }
   if (a === "enviar") {
-    if (!U.borrador.elegidas.length && opcionesRonda().length) return;
+    if (!listoParaEnviar()) return;
     return guardarRespuesta(U.miEquipo, {
       elegidas: U.borrador.elegidas, justificacion: U.borrador.justificacion, enviada: true, vencida: false });
   }
 
   // --- barra de demo (solo Etapa 1) ---
   if (a === "rol") { U.rol = b.dataset.r; return render(); }
-  if (a === "reset") { limpiarTimers(); olvidarSesion(); P = null; R = {}; PT = {}; U = { ...U, pantalla: "home", rol: null, error: "", modoStaff: false, codigoDraft: "" }; return render(); }
+  if (a === "reset") { limpiarTimers(); olvidarSesion(); P = null; R = {}; PT = {}; SUG = {}; U = { ...U, pantalla: "home", rol: null, error: "", modoStaff: false, codigoDraft: "" }; return render(); }
 });
 
 // Lo que se escribe se guarda sin volver a dibujar la pantalla, para no
@@ -2005,6 +2240,7 @@ document.addEventListener("input", (ev) => {
   else if (id === "n-titulo") U.nuevo.titulo = v;
   else if (id === "n-pregunta") U.nuevo.pregunta = v;
   else if (id === "n-texto") U.nuevo.texto = v;
+  else if (id === "n-modelo") U.nuevo.modelo = v;
   else if (id === "nombre") U.nombreDraft = v;
   else if (id === "c-nombre") TIPOS[cfg.tipo].nombre = v;
   else if (id === "c-corto") TIPOS[cfg.tipo].corto = v;
@@ -2012,7 +2248,13 @@ document.addEventListener("input", (ev) => {
   else if (id === "c-2") TIPOS[cfg.tipo].criterio[2] = v;
   else if (id === "c-1") TIPOS[cfg.tipo].criterio[1] = v;
   else if (id === "c-0") TIPOS[cfg.tipo].criterio[0] = v;
-  else if (id === "justi") U.borrador.justificacion = v;
+  else if (id === "justi") {
+    U.borrador.justificacion = v;
+    /* Sin opciones, el botón depende de este texto. No redibujamos la
+       pantalla para no perder el teclado: le cambiamos el estado al botón. */
+    const boton = document.querySelector('[data-a="enviar"]');
+    if (boton) boton.disabled = !listoParaEnviar();
+  }
   else if (ev.target.dataset && ev.target.dataset.op) {
     U.nuevo.opciones = (U.nuevo.opciones || []).map((o) =>
       o.id === ev.target.dataset.op ? { ...o, texto: v } : o);
