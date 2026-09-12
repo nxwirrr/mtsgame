@@ -627,6 +627,8 @@ async function nubeIniciar() {
   return true;
 }
 
+const refDocente = (uid) => window.FB.doc(db, "docentes", uid);
+const refClave = () => window.FB.doc(db, "config", "privado");
 const refSala = (cod) => window.FB.doc(db, "salas", cod);
 const refPrivado = (cod) => window.FB.doc(db, "salas", cod, "privado", "acceso");
 const refStaff = (cod, uid) => window.FB.doc(db, "salas", cod, "staff", uid);
@@ -885,9 +887,57 @@ function borrarActividad(id) {
   cfg.elegidos = [];
 }
 
+/* ─── Clave de cátedra ────────────────────────────────────────────────────
+   Sin esto, cualquiera que entrara a una partida podía crear partidas y leer
+   la biblioteca, que guarda las respuestas correctas de cada ítem.
+
+   Nadie lee la clave: se presenta y las reglas la comparan contra un
+   documento que ningún navegador puede abrir. La primera vez que alguien la
+   define, ese documento todavía no existe; de ahí en más solo la cambia
+   quien ya la conoce. */
+async function soyDocente() {
+  if (!MODO_NUBE || !db) return true;          // sin nube no hay nada que proteger
+  try {
+    const d = await window.FB.getDoc(refDocente(miUid));
+    return d.exists();
+  } catch (e) {
+    return false;
+  }
+}
+
+/* Devuelve "listo", "incorrecta" o "error". Si todavía no hay clave en la
+   cátedra, la que se presente queda como la clave. */
+async function presentarClave(clave) {
+  if (!MODO_NUBE || !db) return "listo";
+  const FB = window.FB;
+  try {
+    await FB.setDoc(refDocente(miUid), { clave, desde: Date.now() });
+    return "listo";
+  } catch (e) { /* o la clave no coincide, o todavía no hay ninguna */ }
+  try {
+    await FB.setDoc(refClave(), { clave });    // solo entra si no existía
+  } catch (e) {
+    return "incorrecta";                       // ya había una, y no es esta
+  }
+  try {
+    await FB.setDoc(refDocente(miUid), { clave, desde: Date.now() });
+    return "listo";
+  } catch (e) {
+    return "error";
+  }
+}
+
+async function cambiarClave(nueva) {
+  if (!MODO_NUBE || !db) return true;
+  await window.FB.setDoc(refClave(), { clave: nueva });
+  await window.FB.setDoc(refDocente(miUid), { clave: nueva, desde: Date.now() });
+  return true;
+}
+
 /* ---------------------------------------------------------- BIBLIOTECA --- */
 
 async function cargarBiblioteca() {
+  if (MODO_NUBE && db && !U.esDocente) { BIBLIOTECA = []; return; }
   if (MODO_NUBE && db) {
     const FB = window.FB;
     const snap = await FB.getDocs(FB.collection(db, "biblioteca"));
@@ -1057,6 +1107,9 @@ let U = {
   pin: "",            // solo en el dispositivo que creó la partida
   aviso: "",          // mensaje pasajero de error
   cargando: true,     // todavía no llegó la biblioteca
+  esDocente: false,   // este dispositivo presentó la clave de cátedra
+  claveDraft: "",
+  cambiandoClave: false,
   sinRed: typeof navigator !== "undefined" && navigator.onLine === false,
   nubeCaida: false,   // hay configuración pero no se pudo conectar
   borrador: { elegidas: [], justificacion: "" },
@@ -1605,7 +1658,7 @@ function vistaCrear() {
 
     <div>
       <h1>Armar partida</h1>
-      <p class="lead" style="margin-top:6px">Cada fragmento que elijas es una ronda.</p>
+      <p class="lead" style="margin-top:6px">Cada ítem que elijas es una ronda.</p>
     </div>
 
     <div class="card stack">
@@ -1671,6 +1724,7 @@ function vistaCrear() {
     <button class="btn docente" data-a="crear" ${cfg.elegidos.length ? "" : "disabled"}>
       Crear partida · ${cfg.elegidos.length} ronda${cfg.elegidos.length === 1 ? "" : "s"}
     </button>
+    ${MODO_NUBE ? `<button class="btn link" data-a="ir-cambiar-clave">Cambiar la clave de cátedra</button>` : ""}
   </div>`;
 }
 
@@ -1939,6 +1993,36 @@ function vistaEstudiante() {
   return `<div class="screen">${topbar()}${cuerpo}</div>`;
 }
 
+function vistaClave() {
+  const cambiando = U.cambiandoClave;
+  return `<div class="screen center">
+    <div class="stack" style="gap:20px">
+      <div>
+        <p class="kicker">${cambiando ? "Cambiar la clave" : "Solo para la cátedra"}</p>
+        <h1>Clave de cátedra</h1>
+        <p class="lead" style="margin-top:8px">${cambiando
+          ? "La nueva clave reemplaza a la anterior. Los dispositivos que ya entraron siguen adentro."
+          : "Hace falta para crear partidas y para ver la biblioteca, que guarda las respuestas correctas."}</p>
+      </div>
+
+      <div class="card stack">
+        <label class="field">
+          <span class="label">${cambiando ? "Clave nueva" : "Clave"}</span>
+          <input type="text" id="clave" autocomplete="off" autocapitalize="none"
+                 placeholder="La que usa tu cátedra" value="${esc(U.claveDraft)}" />
+        </label>
+        ${U.error ? `<div class="aviso">${esc(U.error)}</div>` : ""}
+        <button class="btn docente" data-a="enviar-clave">${cambiando ? "Cambiar la clave" : "Entrar"}</button>
+        <button class="btn link" data-a="home">Volver</button>
+      </div>
+
+      ${cambiando ? "" : `<p class="muted" style="text-align:center">
+        Si es la primera vez que se usa la aplicación, la clave que escribas queda
+        como la de la cátedra. Compartila solo con el equipo.</p>`}
+    </div>
+  </div>`;
+}
+
 /* --------------------------------------------------------------- ENTRAR --- */
 
 async function entrar() {
@@ -1989,6 +2073,34 @@ async function entrar() {
   }
 }
 
+async function enviarClave() {
+  const clave = (U.claveDraft || "").trim();
+  if (clave.length < 4) { U.error = "Poné al menos 4 caracteres."; return render(); }
+  if (nubeLista) await nubeLista;
+
+  if (U.cambiandoClave) {
+    U.error = "Cambiando…"; render();
+    try {
+      await cambiarClave(clave);
+      U.cambiandoClave = false; U.error = ""; U.pantalla = "crear";
+      avisar("Clave cambiada.");
+      return render();
+    } catch (e) {
+      U.error = "No pudimos cambiarla. Revisá la conexión.";
+      return render();
+    }
+  }
+
+  U.error = "Comprobando…"; render();
+  const resultado = await presentarClave(clave);
+  if (resultado === "incorrecta") { U.error = "Clave incorrecta."; return render(); }
+  if (resultado === "error") { U.error = "No pudimos comprobarla. Revisá la conexión."; return render(); }
+
+  U.esDocente = true; U.error = ""; U.pantalla = "crear";
+  render();
+  return cargarBiblioteca().then(render);        // ahora sí podemos leerla
+}
+
 /* ---------------------------------------------------------------- RENDER --- */
 
 function render() {
@@ -2000,7 +2112,8 @@ function render() {
   const foco = activo && activo.id ? { id: activo.id, pos: activo.selectionStart } : null;
 
   let html;
-  if (U.pantalla === "actividad") html = vistaActividad();
+  if (U.pantalla === "clave") html = vistaClave();
+  else if (U.pantalla === "actividad") html = vistaActividad();
   else if (U.pantalla === "crear") html = vistaCrear();
   else if (U.pantalla === "home" || !P) html = vistaHome();
   else html = { docente: vistaDocente, catedra: vistaCatedra, estudiante: vistaEstudiante }[U.rol]();
@@ -2048,7 +2161,19 @@ document.addEventListener("click", (ev) => {
 
   // --- inicio ---
   if (a === "toggle-staff") { U.modoStaff = !U.modoStaff; U.error = ""; return render(); }
-  if (a === "ir-crear") { U.pantalla = "crear"; U.error = ""; return render(); }
+  if (a === "ir-crear") {
+    if (MODO_NUBE && !U.esDocente) {
+      U.pantalla = "clave"; U.error = ""; U.claveDraft = ""; U.cambiandoClave = false;
+      return render();
+    }
+    U.pantalla = "crear"; U.error = "";
+    return render();
+  }
+  if (a === "ir-cambiar-clave") {
+    U.pantalla = "clave"; U.error = ""; U.claveDraft = ""; U.cambiandoClave = true;
+    return render();
+  }
+  if (a === "enviar-clave") return enviarClave();
   if (a === "demo-rapida") {           // partida armada, para mostrar la idea sin configurar
     const ejemplos = BIBLIOTECA.filter((f) => f.tipo === "estado").slice(0, 2);
     cfg = { tipo: "estado", segundos: 90, equipos: 4, elegidos: ejemplos.map((f) => f.id) };
@@ -2237,6 +2362,7 @@ document.addEventListener("input", (ev) => {
   const id = ev.target.id, v = ev.target.value;
   if (id === "codigo") U.codigoDraft = v;
   else if (id === "pin") U.pinDraft = v;
+  else if (id === "clave") U.claveDraft = v;
   else if (id === "n-titulo") U.nuevo.titulo = v;
   else if (id === "n-pregunta") U.nuevo.pregunta = v;
   else if (id === "n-texto") U.nuevo.texto = v;
@@ -2275,6 +2401,7 @@ nubeLista = (MODO_NUBE
     })
   : Promise.resolve()
 )
+  .then(async () => { U.esDocente = await soyDocente(); })
   .then(() => Promise.all([cargarBiblioteca(), cargarTipos(), reconectar()]))
   .catch((e) => {
     /* La identidad anónima puede funcionar y la base no responder: cuenta
