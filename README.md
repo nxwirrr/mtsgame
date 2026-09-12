@@ -80,10 +80,12 @@ Cada equipo lee únicamente su propia respuesta: no hay forma de espiar la de
 otro equipo durante la ronda, ni desde la pantalla ni desde las herramientas
 del navegador. Cátedra las lee todas.
 
-Queda un límite conocido, por no haber cuentas: la biblioteca y los criterios
-los puede editar cualquier dispositivo que haya entrado a una partida. Se
-cierra con una clave de cátedra, con el mismo mecanismo que usa el PIN de
-sala, si alguna vez hace falta.
+Una clave de cátedra protege lo demás: sin ella no se crean partidas, no se
+editan los criterios y no se lee la biblioteca, que guarda las respuestas
+correctas de cada ítem. La clave no está en ningún documento legible; se
+presenta y las reglas comparan, igual que el PIN de sala. La primera vez que
+se usa la aplicación, la clave que se escriba queda como la de la cátedra,
+así que conviene definirla antes de compartir el enlace.
 
 Para desarrollo, `?emulador=1` conecta contra un Firestore local
 (`firebase emulators:start --only firestore,auth`) sin necesidad de cuenta.

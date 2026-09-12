@@ -8,7 +8,9 @@ rules_version = '2';
      · el puntaje lo escribe solo cátedra,
      · cada equipo escribe solo su propia respuesta,
      · el ritmo de la partida lo maneja solo quien la creó o cátedra,
-     · el PIN no está en ningún documento que se pueda leer.
+     · solo quien conoce la clave de cátedra crea partidas y toca la
+       biblioteca, que guarda las respuestas correctas,
+     · ni el PIN ni la clave están en ningún documento que se pueda leer.
 */
 
 service cloud.firestore {
@@ -17,15 +19,40 @@ service cloud.firestore {
     function firmada() { return request.auth != null; }
     function yo() { return request.auth.uid; }
 
-    // Biblioteca de fragmentos y criterios de puntaje: los comparte la cátedra.
-    // Cualquier dispositivo que entró a una partida puede leerlos y editarlos.
-    match /biblioteca/{id} {
-      allow read: if firmada();
-      allow write: if firmada();
+    function esDocente() {
+      return firmada() && exists(/databases/$(db)/documents/docentes/$(yo()));
     }
+
+    /* La clave de cátedra. Nadie la lee: se presenta y las reglas comparan.
+       La primera vez que alguien la define, el documento todavía no existe y
+       por eso se permite crearlo; después solo la cambia quien ya es docente. */
+    match /config/privado {
+      allow read: if false;
+      allow create: if firmada();
+      allow update: if esDocente();
+    }
+
+    /* Prueba de que alguien conoce la clave. Solo la lee su propio dueño. */
+    match /docentes/{uid} {
+      allow read: if firmada() && uid == yo();
+      allow create: if firmada() && uid == yo()
+                    && request.resource.data.clave ==
+                       get(/databases/$(db)/documents/config/privado).data.clave;
+      allow delete: if firmada() && uid == yo();
+    }
+
+    /* La biblioteca guarda las respuestas correctas de cada ítem: la lee y la
+       escribe solo cátedra. Las estudiantes no la necesitan, porque el ítem
+       viaja dentro de la partida. */
+    match /biblioteca/{id} {
+      allow read, write: if esDocente();
+    }
+
+    // Los criterios los ve cualquiera —se muestran al revelar— pero los edita
+    // solo cátedra.
     match /config/{id} {
-      allow read: if firmada();
-      allow write: if firmada();
+      allow read: if firmada() && id != 'privado';
+      allow write: if esDocente() && id != 'privado';
     }
 
     match /salas/{cod} {
@@ -49,7 +76,7 @@ service cloud.firestore {
       // La partida la lee cualquiera que tenga el código; el ritmo lo cambia
       // solo quien la creó o cátedra.
       allow read: if firmada();
-      allow create: if firmada()
+      allow create: if esDocente()
                     && request.resource.data.creador == yo()
                     && request.resource.data.codigo == cod;
       allow update: if esStaff();
