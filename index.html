@@ -202,6 +202,10 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
 .opt.no[aria-pressed=true]{border-color:var(--no);background:var(--no-soft)}
 .opt.no[aria-pressed=true] .badge{background:var(--no);color:#fff;border-color:var(--no)}
 
+.opt.quieta{opacity:.75;cursor:default}
+.card.turno{border-color:var(--equipo);background:var(--equipo-soft)}
+.card.turno .kicker{color:var(--equipo)}
+
 .tag{
   display:inline-flex;align-items:center;gap:6px;
   font-size:12px;font-weight:800;letter-spacing:.02em;
@@ -593,8 +597,11 @@ let MODO_NUBE = EMULADOR || !!FIREBASE_CONFIG.projectId;
 let db = null, auth = null, miUid = null, nubeLista = null;
 let J = [];              // jugadores conectados a la sala
 let R = {};              // respuestas: R["r0"]["e1"] = { opcion, justificacion, ... }
-let PT = {};             // puntajes:   PT["r0"]["e1"] = 2
-let SUG = {};            // cuáles de esos puntajes son sugerencias
+/* Cada quien puntúa lo suyo: PT["r0"]["e1"] es una lista de
+   { uid, puntaje, sugerido }, una entrada por persona de cátedra. El equipo
+   recibe el promedio. Con un solo puntaje por equipo, el último en tocar
+   pisaba al anterior. */
+let PT = {};
 let cortar = [];         // cómo dejar de escuchar la sala anterior
 
 const equiposBase = (cuantos) =>
@@ -646,7 +653,7 @@ function escucharSala(codigo) {
     if (!d.exists()) {
       // La sala se cerró: cortamos todas las escuchas antes de que fallen.
       dejarDeEscuchar();
-      P = null; R = {}; PT = {}; SUG = {}; J = [];
+      P = null; R = {}; PT = {}; J = [];
       U.pantalla = "home"; U.rol = null; U.pin = "";
       U.error = "La partida se cerró.";
       olvidarSesion();
@@ -679,11 +686,13 @@ function escucharSala(codigo) {
     }));
   }
   cortar.push(window.FB.onSnapshot(refPuntajes(codigo), (snap) => {
-    PT = {}; SUG = {};
+    PT = {};
     snap.forEach((d) => {
       const x = d.data();
-      (PT[x.ronda] ||= {})[x.equipoId] = x.puntaje;
-      (SUG[x.ronda] ||= {})[x.equipoId] = !!x.sugerido;
+      const lista = ((PT[x.ronda] ||= {})[x.equipoId] ||= []);
+      const i = lista.findIndex((v) => v.uid === x.uid);
+      const entrada = { uid: x.uid, puntaje: x.puntaje, sugerido: !!x.sugerido };
+      if (i >= 0) lista[i] = entrada; else lista.push(entrada);
     });
     render();
   }));
@@ -985,7 +994,8 @@ async function borrarFragmento(id) {
 function filasResumen() {
   const formato = formatoDe(P);
   const filas = [["Ronda", "Ítem", "Equipo", "Integrantes", "Elección",
-                  pideJustificacion(P) ? "Justificación" : "—", "Puntaje", "Esperada", "Coincide"]];
+                  pideJustificacion(P) ? "Justificación" : "—",
+                  "Puntaje (promedio)", "Puntajes de cátedra", "Esperada", "Coincide"]];
   (P.rondas || []).forEach((item, i) => {
     const k = "r" + i;
     const opciones = opcionesVisibles(item, formato);
@@ -996,13 +1006,15 @@ function filasResumen() {
       const r = (R[k] || {})[e.id];
       if (!r) return;
       const elegidas = elegidasDe(r);
-      const pj = (PT[k] || {})[e.id];
+      const pj = promedioDe(e.id, k);
       const coincide = correctas.length
         ? (elegidas.length === correctas.length && correctas.every((c) => elegidas.includes(c)) ? "sí" : "no")
         : "";
       filas.push([i + 1, item.titulo || "", e.nombre, (e.integrantes || []).join(", "),
                   elegidas.map(textoDe).join(" · "), r.justificacion || "",
-                  pj === undefined ? "" : pj, esperada, coincide]);
+                  pj === undefined ? "" : conDecimal(pj),
+                  votosDe(e.id, k).map((v) => "+" + v.puntaje).join(" "),
+                  esperada, coincide]);
     });
   });
   return filas;
@@ -1032,10 +1044,10 @@ function mejorJustificacion() {
   let mejor = null;
   equiposActivos().forEach((e) => {
     const r = respuestaDe(e.id);
-    const pj = puntajesRonda()[e.id];
+    const pj = promedioDe(e.id);
     if (!r || !r.justificacion || pj === undefined) return;
     if (!mejor || pj > mejor.puntaje) {
-      mejor = { equipo: e.id, nombre: e.nombre, texto: r.justificacion, puntaje: pj };
+      mejor = { equipo: e.id, nombre: e.nombre, texto: r.justificacion, puntaje: Math.round(pj * 10) / 10 };
     }
   });
   return mejor && mejor.puntaje > 0 ? mejor : null;
@@ -1045,7 +1057,7 @@ function destacadaHTML() {
   const d = P.destacada;
   if (!d || !d.texto) return "";
   return `<div class="card destacada stack-sm">
-    <p class="kicker">La justificación que se llevó +${d.puntaje} · ${esc(d.nombre || "")}</p>
+    <p class="kicker">La justificación que se llevó +${conDecimal(d.puntaje)} · ${esc(d.nombre || "")}</p>
     <p class="lead" style="color:var(--ink)">${esc(d.texto)}</p>
   </div>`;
 }
@@ -1066,12 +1078,16 @@ function guardarRespuesta(equipoId, datos) {
 
 function guardarPuntaje(equipoId, puntaje, sugerido = false) {
   const k = claveRonda();
+  const quien = miUid || "local";
   if (MODO_NUBE && db && P) {
-    return pase(window.FB.setDoc(window.FB.doc(refPuntajes(P.codigo), k + "_" + equipoId),
-      { ronda: k, equipoId, puntaje, sugerido }), "No pudimos guardar el puntaje. Revisá la conexión.");
+    return pase(window.FB.setDoc(window.FB.doc(refPuntajes(P.codigo), k + "_" + equipoId + "_" + quien),
+      { ronda: k, equipoId, puntaje, sugerido, uid: quien }),
+      "No pudimos guardar el puntaje. Revisá la conexión.");
   }
-  (PT[k] ||= {})[equipoId] = puntaje;
-  (SUG[k] ||= {})[equipoId] = sugerido;
+  const lista = ((PT[k] ||= {})[equipoId] ||= []);
+  const i = lista.findIndex((v) => v.uid === quien);
+  const entrada = { uid: quien, puntaje, sugerido };
+  if (i >= 0) lista[i] = entrada; else lista.push(entrada);
   render();
 }
 
@@ -1224,7 +1240,7 @@ async function crearPartida() {
   const cuantos = partida.equipos.length;
   NOMBRES_DEMO.slice(0, cuantos * 3 - 1).forEach((nom, i) => partida.equipos[i % cuantos].integrantes.push(nom));
   P = partida;
-  R = {}; PT = {}; SUG = {};
+  R = {}; PT = {};
   U.rol = "docente";
   U.miEquipo = "e2";            // en la demo, "yo estudiante" soy del Equipo 2
   U.pantalla = "partida";
@@ -1235,6 +1251,8 @@ const claveRonda = () => "r" + P.rondaIndex;
 const opcionesRonda = () => opcionesVisibles(fragmentoActual(), formatoDe(P));
 const correctasRonda = () => correctasDe(fragmentoActual(), formatoDe(P));
 const variasRonda = () => permiteVarias(fragmentoActual(), formatoDe(P));
+const consignaDe = (partida) =>
+  ({ dictamen: "¿Qué dictaminan?", vf: "¿Verdadero o falso?" }[formatoDe(partida)] || "¿Qué responden?");
 const elegidasDe = (r) => (r && (r.elegidas || (r.opcion ? [r.opcion] : []))) || [];
 
 /* Hace falta elegir algo si hay opciones, y escribir algo si no hay. */
@@ -1247,11 +1265,22 @@ function listoParaEnviar() {
 const fragmentoActual = () => P.rondas[P.rondaIndex] || null;
 const respuestasRonda = () => R[claveRonda()] || {};
 const puntajesRonda = () => PT[claveRonda()] || {};
-const esSugerido = (eq) => !!(SUG[claveRonda()] || {})[eq];
+const votosDe = (eq, ronda) => ((ronda === undefined ? puntajesRonda() : (PT[ronda] || {}))[eq]) || [];
+const miVoto = (eq) => votosDe(eq).find((v) => v.uid === (miUid || "local"));
+const puntajeMio = (eq) => miVoto(eq)?.puntaje;
+const esSugerido = (eq) => !!miVoto(eq)?.sugerido;
+
+/* El puntaje del equipo es el promedio de lo que puso cada quien. */
+function promedioDe(eq, ronda) {
+  const votos = votosDe(eq, ronda);
+  if (!votos.length) return undefined;
+  return votos.reduce((a, v) => a + v.puntaje, 0) / votos.length;
+}
+const conDecimal = (n) => (n === undefined ? "" : (Math.round(n * 10) / 10).toString().replace(".", ","));
 const respuestaDe = (eq) => respuestasRonda()[eq] || null;
 
 function totalDe(equipoId) {
-  return Object.values(PT).reduce((acc, r) => acc + (r[equipoId] ?? 0), 0);
+  return Object.keys(PT).reduce((acc, ronda) => acc + (promedioDe(equipoId, ronda) ?? 0), 0);
 }
 /* Si vinieron doce personas y la partida se armó para seis equipos, los
    equipos vacíos no tienen que aparecer esperando respuesta ni frenar la
@@ -1270,8 +1299,7 @@ function respondidos() {
 }
 function cuantosJuegan() { return equiposActivos().length; }
 function puntuados() {
-  const p = puntajesRonda();
-  return equiposActivos().filter((e) => p[e.id] !== undefined).length;
+  return equiposActivos().filter((e) => votosDe(e.id).length > 0).length;
 }
 
 function iniciarRonda() {
@@ -1279,7 +1307,7 @@ function iniciarRonda() {
   const k = claveRonda();
   cerrando = false;
   vencimientoAtendido = null;
-  delete R[k]; delete PT[k]; delete SUG[k];         // si se repite la ronda, arranca limpia
+  delete R[k]; delete PT[k];         // si se repite la ronda, arranca limpia
   const marca = MODO_NUBE && window.FB ? window.FB.serverTimestamp() : null;
   set(marca
     ? { fase: "ronda", finRonda: Date.now() + P.segundos * 1000, inicioServidor: marca }
@@ -1327,7 +1355,7 @@ function latido() {
   // Al vencer el tiempo cada equipo manda una sola vez lo que tenga escrito.
   if (vencimientoAtendido !== claveRonda()) {
     vencimientoAtendido = claveRonda();
-    if (U.rol === "estudiante" && U.miEquipo && !respuestaDe(U.miEquipo)?.enviada) {
+    if (U.rol === "estudiante" && U.miEquipo && meTocaEscribir() && !respuestaDe(U.miEquipo)?.enviada) {
       guardarRespuesta(U.miEquipo, {
         elegidas: U.borrador.elegidas, justificacion: U.borrador.justificacion, enviada: true, vencida: true });
     }
@@ -1360,7 +1388,7 @@ function cerrarRonda() {
   if (sugierePuntaje(P) && correctasRonda().length) {
     const correctas = correctasRonda();
     equiposActivos().forEach((e) => {
-      if (puntajesRonda()[e.id] !== undefined) return;
+      if (puntajeMio(e.id) !== undefined) return;
       const elegidas = elegidasDe(respuestaDe(e.id));
       const iguales = elegidas.length === correctas.length && correctas.every((c) => elegidas.includes(c));
       if (iguales) sugerencias.push(guardarPuntaje(e.id, 2, true));
@@ -1402,6 +1430,26 @@ function topbar() {
 }
 
 const equipoMio = () => P.equipos.find((e) => e.id === U.miEquipo);
+
+/* Antes, la primera que enviaba cerraba la respuesta para todo el equipo.
+   Ahora en cada ronda le toca escribir a una integrante distinta, por turno:
+   así todas participan y nadie pisa a nadie. El orden es estable —por
+   identificador— para que no cambie si alguien recarga. */
+function integrantesDeMiEquipo() {
+  return J.filter((j) => j.rol === "estudiante" && j.equipoId === U.miEquipo)
+          .slice()
+          .sort((a, b) => a.uid.localeCompare(b.uid));
+}
+function escribeEstaRonda() {
+  if (!MODO_NUBE) return null;                 // en modo demo escribe quien mira
+  const gente = integrantesDeMiEquipo();
+  if (!gente.length) return null;
+  return gente[P.rondaIndex % gente.length];
+}
+function meTocaEscribir() {
+  const quien = escribeEstaRonda();
+  return !quien || quien.uid === miUid;
+}
 
 function pasos() {
   const n = P.rondas.length;
@@ -1490,13 +1538,12 @@ function rankingHTML(destacarMio) {
       <span class="avatar ${e.id}">${esc(e.nombre.replace("Equipo ", "E"))}</span>
       <span class="name">${esc(e.nombre)}</span>
       <span class="spacer"></span>
-      <span class="pts">${e.total}</span>
+      <span class="pts">${conDecimal(e.total)}</span>
     </div>`).join("")}</div>`;
 }
 
 function panelPuntaje(editable) {
   const crit = criterioDe(P);
-  const pts = puntajesRonda();
   return `
   <div class="card stack">
     <div>
@@ -1510,7 +1557,9 @@ function panelPuntaje(editable) {
   ${referenciaHTML()}
   ${equiposActivos().map((e) => {
     const r = respuestaDe(e.id) || {};
-    const p = pts[e.id];
+    const p = puntajeMio(e.id);
+    const votos = votosDe(e.id);
+    const otros = votos.filter((v) => v.uid !== (miUid || "local"));
     return `<div class="card stack">
       <div class="row wrap">
         <span class="avatar ${e.id}">${esc(e.nombre.replace("Equipo ", "E"))}</span>
@@ -1526,8 +1575,13 @@ function panelPuntaje(editable) {
         ${[2,1,0].map((n) => `<button class="sbtn ${esSugerido(e.id) && p === n ? "sugerido" : ""}"
           data-a="puntuar" data-eq="${e.id}" data-n="${n}" aria-pressed="${p === n}">+${n}</button>`).join("")}
       </div>
-      ${esSugerido(e.id) ? `<p class="muted" style="font-size:12px">Sugerido porque coincide. Confirmá o cambialo.</p>` : ""}`
-      : `<p class="muted">${p === undefined ? "Sin puntuar todavía" : "Puntaje: +" + p}</p>`}
+      ${esSugerido(e.id) ? `<p class="muted" style="font-size:12px">Sugerido porque coincide. Confirmá o cambialo.</p>` : ""}
+      ${otros.length ? `<p class="muted" style="font-size:12px">
+        El resto de cátedra puso ${otros.map((v) => "+" + v.puntaje).join(", ")} ·
+        promedio del equipo <b style="color:var(--ink)">+${conDecimal(promedioDe(e.id))}</b></p>` : ""}`
+      : `<p class="muted">${votos.length === 0 ? "Sin puntuar todavía"
+          : "Puntaje del equipo: +" + conDecimal(promedioDe(e.id)) +
+            (votos.length > 1 ? " · promedio de " + votos.length + " personas" : "")}</p>`}
     </div>`;
   }).join("")}`;
 }
@@ -1923,7 +1977,7 @@ function vistaEstudiante() {
   const f = fragmentoActual();
   const eq = equipoMio();
   const r = P.fase === "lobby" ? null : respuestaDe(U.miEquipo);
-  const pts = puntajesRonda()[U.miEquipo];
+  const pts = promedioDe(U.miEquipo);
 
   const cuerpo = {
     lobby: () => `
@@ -1947,13 +2001,36 @@ function vistaEstudiante() {
       const opciones = opcionesRonda();
       const varias = variasRonda();
       const elegidas = U.borrador.elegidas;
-      const consigna = { dictamen: "¿Qué dictaminan?", vf: "¿Verdadero o falso?" }[formatoDe(P)] || "¿Qué responden?";
-      return `
-        <div class="card stack">${timerHTML()}
-          <p class="muted">Al vencer el tiempo se envía sola, aunque esté incompleta.</p></div>
+      const turno = escribeEstaRonda();
+      const miTurno = meTocaEscribir();
+
+      /* Quien no tiene el turno ve lo mismo pero sin poder escribir: la
+         discusión es del equipo, la escritura le toca a una. */
+      if (!miTurno) return `
+        <div class="card stack">${timerHTML()}</div>
         ${fragmentoHTML(f)}
         ${opciones.length ? `<div class="card stack">
-          <span class="label">${esc(consigna)}</span>
+          <span class="label">${esc(consignaDe(P))}</span>
+          <div class="opts">${opciones.map((o) => `
+            <div class="opt ${o.clase} quieta">
+              <span class="badge">${o.letra}</span><span class="txt">${esc(o.texto)}</span>
+            </div>`).join("")}</div>
+        </div>` : ""}
+        <div class="card turno stack-sm">
+          <p class="kicker">En esta ronda escribe</p>
+          <h2>${esc(turno.nombre || "otra integrante")}</h2>
+          <p class="muted">Discutan entre todas y díctenle la respuesta. En la ronda
+            siguiente le toca a otra persona del equipo.</p>
+        </div>`;
+
+      return `
+        <div class="card stack">${timerHTML()}
+          ${turno ? `<p class="muted"><b style="color:var(--equipo)">Te toca escribir a vos.</b>
+            Al vencer el tiempo se envía sola, aunque esté incompleta.</p>`
+          : `<p class="muted">Al vencer el tiempo se envía sola, aunque esté incompleta.</p>`}</div>
+        ${fragmentoHTML(f)}
+        ${opciones.length ? `<div class="card stack">
+          <span class="label">${esc(consignaDe(P))}</span>
           ${varias ? `<p class="muted" style="margin:-2px 0 2px">Pueden marcar más de una.</p>` : ""}
           <div class="opts">${opciones.map((o) => `
             <button class="opt ${o.clase}" data-a="opcion" data-o="${o.id}" aria-pressed="${elegidas.includes(o.id)}">
@@ -1979,8 +2056,8 @@ function vistaEstudiante() {
     revelado: () => `${pasos()}
       <div class="card stack" style="text-align:center">
         <p class="kicker">Ronda ${P.rondaIndex + 1} · ${esc(eq.nombre)}</p>
-        <h1 style="font-size:52px">+${pts ?? 0}</h1>
-        <p class="lead">${esc(criterioDe(P)[pts ?? 0] || "")}</p>
+        <h1 style="font-size:52px">+${conDecimal(pts ?? 0)}</h1>
+        <p class="lead">${esc(criterioDe(P)[Math.round(pts ?? 0)] || "")}</p>
       </div>
       ${referenciaHTML()}
       ${destacadaHTML()}
@@ -2192,7 +2269,7 @@ document.addEventListener("click", (ev) => {
   if (a === "descargar") return descargarResumen();
   if (a === "cerrar-partida") {
     const copia = P;
-    P = null; R = {}; PT = {}; SUG = {}; U.pantalla = "home"; U.rol = null; U.pin = "";
+    P = null; R = {}; PT = {}; U.pantalla = "home"; U.rol = null; U.pin = "";
     render();
     return cerrarPartida(copia);
   }
@@ -2363,7 +2440,7 @@ document.addEventListener("click", (ev) => {
 
   // --- barra de demo (solo Etapa 1) ---
   if (a === "rol") { U.rol = b.dataset.r; return render(); }
-  if (a === "reset") { limpiarTimers(); olvidarSesion(); P = null; R = {}; PT = {}; SUG = {}; U = { ...U, pantalla: "home", rol: null, error: "", modoStaff: false, codigoDraft: "" }; return render(); }
+  if (a === "reset") { limpiarTimers(); olvidarSesion(); P = null; R = {}; PT = {}; U = { ...U, pantalla: "home", rol: null, error: "", modoStaff: false, codigoDraft: "" }; return render(); }
 });
 
 // Lo que se escribe se guarda sin volver a dibujar la pantalla, para no
