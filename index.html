@@ -1133,6 +1133,7 @@ let U = {
   esDocente: false,   // este dispositivo presentó la clave de cátedra
   claveDraft: "",
   cambiandoClave: false,
+  tomeAlguna: null,   // ronda en la que este dispositivo tomó el turno
   sinRed: typeof navigator !== "undefined" && navigator.onLine === false,
   nubeCaida: false,   // hay configuración pero no se pudo conectar
   borrador: { elegidas: [], justificacion: "" },
@@ -1486,11 +1487,17 @@ function escribeEstaRonda() {
   if (!MODO_NUBE) return null;                 // en modo demo escribe quien mira
   const gente = integrantesDeMiEquipo();
   if (!gente.length) return null;
-  /* Si a alguien se le apagó el celular justo en su turno, otra integrante
-     puede tomarlo. Queda anotado en su propia ficha, que es lo único que
-     cada persona puede escribir. */
-  const tomado = gente.find((j) => j.tomoTurno === claveRonda());
-  if (tomado) return tomado;
+  /* Si a alguien se le apagó el celular justo en su turno, cualquier otra
+     integrante puede tomarlo. Queda anotado en su propia ficha, que es lo
+     único que cada persona puede escribir.
+
+     Si lo toman varias, escribe la última que lo hizo: así quien lo perdió
+     por un toque ajeno puede recuperarlo, y dos personas no se quedan
+     peleando por un turno que siempre ganaría la misma. */
+  const tomadoras = gente.filter((j) => j.tomoTurno === claveRonda());
+  if (tomadoras.length) {
+    return tomadoras.reduce((a, b) => ((b.tomoEn || 0) > (a.tomoEn || 0) ? b : a));
+  }
   return gente[P.rondaIndex % gente.length];
 }
 function meTocaEscribir() {
@@ -2066,7 +2073,10 @@ function vistaEstudiante() {
           <p class="muted">Discutan entre todas y díctenle la respuesta. En la ronda
             siguiente le toca a otra persona del equipo.</p>
         </div>
-        <button class="btn link" data-a="tomar-turno">¿No puede escribir? Tomar el turno</button>`;
+        <button class="btn link" data-a="tomar-turno">${
+          turno.tomoTurno === claveRonda() && turno.uid !== miUid && U.tomeAlguna === claveRonda()
+            ? "Recuperar el turno"
+            : "¿No puede escribir? Tomar el turno"}</button>`;
 
       return `
         <div class="card stack">${timerHTML()}
@@ -2479,7 +2489,9 @@ document.addEventListener("click", (ev) => {
   }
   if (a === "tomar-turno") {
     if (!MODO_NUBE || !db || !P) return;
-    return pase(window.FB.updateDoc(refJugador(P.codigo, miUid), { tomoTurno: claveRonda() }),
+    U.tomeAlguna = claveRonda();
+    return pase(window.FB.updateDoc(refJugador(P.codigo, miUid),
+      { tomoTurno: claveRonda(), tomoEn: Date.now() }),
       "No pudimos tomar el turno. Revisá la conexión.");
   }
   if (a === "enviar") {
