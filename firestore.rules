@@ -122,10 +122,13 @@ service cloud.firestore {
         allow delete: if esStaff();
       }
 
-      // El puntaje es de cátedra. Nadie más lo escribe.
+      /* El puntaje es de cátedra, y cada quien escribe el suyo: el documento
+         lleva el identificador de quien puntúa, así una persona no puede
+         pisar la calificación de otra. El equipo recibe el promedio. */
       match /puntajes/{id} {
         allow read: if firmada();
-        allow write: if esStaff();
+        allow create, update: if esStaff() && request.resource.data.uid == yo();
+        allow delete: if esStaff();
       }
     }
   }
