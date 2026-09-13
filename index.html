@@ -350,6 +350,9 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
 .destacada{border-color:var(--si);background:var(--si-soft)}
 .destacada .kicker{color:var(--si)}
 
+.muted.empate{color:var(--obs)}
+.muted.empate b{color:var(--obs)}
+
 .marca{
   font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
   padding:4px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap;
@@ -995,7 +998,7 @@ function filasResumen() {
   const formato = formatoDe(P);
   const filas = [["Ronda", "Ítem", "Equipo", "Integrantes", "Elección",
                   pideJustificacion(P) ? "Justificación" : "—",
-                  "Puntaje (promedio)", "Puntajes de cátedra", "Esperada", "Coincide"]];
+                  "Puntaje del equipo", "Votos de cátedra", "Esperada", "Coincide"]];
   (P.rondas || []).forEach((item, i) => {
     const k = "r" + i;
     const opciones = opcionesVisibles(item, formato);
@@ -1270,11 +1273,50 @@ const miVoto = (eq) => votosDe(eq).find((v) => v.uid === (miUid || "local"));
 const puntajeMio = (eq) => miVoto(eq)?.puntaje;
 const esSugerido = (eq) => !!miVoto(eq)?.sugerido;
 
-/* El puntaje del equipo es el promedio de lo que puso cada quien. */
-function promedioDe(eq, ronda) {
+/* El puntaje del equipo es el más votado por cátedra, no el promedio ni la
+   suma: si dos de tres pusieron +2, el equipo recibe +2. Quien falta no vota
+   y no cuenta. Si hay empate decide el voto de quien creó la partida, y si
+   esa persona no votó gana el más alto de los empatados: en la duda, a favor
+   del equipo. */
+function conteoDe(eq, ronda) {
+  const cuenta = {};
+  votosDe(eq, ronda).forEach((v) => { cuenta[v.puntaje] = (cuenta[v.puntaje] || 0) + 1; });
+  return cuenta;
+}
+
+function promedioDe(eq, ronda) {          // el puntaje que recibe el equipo
   const votos = votosDe(eq, ronda);
   if (!votos.length) return undefined;
-  return votos.reduce((a, v) => a + v.puntaje, 0) / votos.length;
+  const cuenta = conteoDe(eq, ronda);
+  const masVotos = Math.max(...Object.values(cuenta));
+  const empatados = Object.keys(cuenta).map(Number).filter((n) => cuenta[n] === masVotos);
+  if (empatados.length === 1) return empatados[0];
+  const delCreador = votos.find((v) => v.uid === P?.creador);
+  if (delCreador && empatados.includes(delCreador.puntaje)) return delCreador.puntaje;
+  return Math.max(...empatados);
+}
+
+const hayEmpate = (eq, ronda) => {
+  const cuenta = conteoDe(eq, ronda);
+  const valores = Object.values(cuenta);
+  if (valores.length < 2) return false;
+  const masVotos = Math.max(...valores);
+  return valores.filter((v) => v === masVotos).length > 1;
+};
+
+/* Que cátedra vea de dónde sale el puntaje, y no tenga que confiar. */
+function explicaPuntaje(eq) {
+  const votos = votosDe(eq);
+  if (!votos.length) return "";
+  const cuenta = conteoDe(eq);
+  const detalle = [2, 1, 0].filter((n) => cuenta[n])
+    .map((n) => `${cuenta[n]} voto${cuenta[n] === 1 ? "" : "s"} a +${n}`).join(" · ");
+  const resultado = promedioDe(eq);
+  if (votos.length === 1) return `1 voto · el equipo recibe <b>+${resultado}</b>`;
+  if (!hayEmpate(eq)) return `${detalle} · el equipo recibe <b>+${resultado}</b>`;
+  const delCreador = votos.find((v) => v.uid === P?.creador);
+  return `${detalle} · <b>empate</b>, decide ${delCreador ? "el voto de quien creó la partida" : "el más alto"}:
+    el equipo recibe <b>+${resultado}</b>`;
 }
 const conDecimal = (n) => (n === undefined ? "" : (Math.round(n * 10) / 10).toString().replace(".", ","));
 const respuestaDe = (eq) => respuestasRonda()[eq] || null;
@@ -1444,6 +1486,11 @@ function escribeEstaRonda() {
   if (!MODO_NUBE) return null;                 // en modo demo escribe quien mira
   const gente = integrantesDeMiEquipo();
   if (!gente.length) return null;
+  /* Si a alguien se le apagó el celular justo en su turno, otra integrante
+     puede tomarlo. Queda anotado en su propia ficha, que es lo único que
+     cada persona puede escribir. */
+  const tomado = gente.find((j) => j.tomoTurno === claveRonda());
+  if (tomado) return tomado;
   return gente[P.rondaIndex % gente.length];
 }
 function meTocaEscribir() {
@@ -1576,12 +1623,9 @@ function panelPuntaje(editable) {
           data-a="puntuar" data-eq="${e.id}" data-n="${n}" aria-pressed="${p === n}">+${n}</button>`).join("")}
       </div>
       ${esSugerido(e.id) ? `<p class="muted" style="font-size:12px">Sugerido porque coincide. Confirmá o cambialo.</p>` : ""}
-      ${otros.length ? `<p class="muted" style="font-size:12px">
-        El resto de cátedra puso ${otros.map((v) => "+" + v.puntaje).join(", ")} ·
-        promedio del equipo <b style="color:var(--ink)">+${conDecimal(promedioDe(e.id))}</b></p>` : ""}`
-      : `<p class="muted">${votos.length === 0 ? "Sin puntuar todavía"
-          : "Puntaje del equipo: +" + conDecimal(promedioDe(e.id)) +
-            (votos.length > 1 ? " · promedio de " + votos.length + " personas" : "")}</p>`}
+      ${votos.length ? `<p class="muted ${hayEmpate(e.id) ? "empate" : ""}" style="font-size:12px">
+        ${explicaPuntaje(e.id)}</p>` : ""}`
+      : `<p class="muted">${votos.length === 0 ? "Sin puntuar todavía" : explicaPuntaje(e.id)}</p>`}
     </div>`;
   }).join("")}`;
 }
@@ -2021,7 +2065,8 @@ function vistaEstudiante() {
           <h2>${esc(turno.nombre || "otra integrante")}</h2>
           <p class="muted">Discutan entre todas y díctenle la respuesta. En la ronda
             siguiente le toca a otra persona del equipo.</p>
-        </div>`;
+        </div>
+        <button class="btn link" data-a="tomar-turno">¿No puede escribir? Tomar el turno</button>`;
 
       return `
         <div class="card stack">${timerHTML()}
@@ -2431,6 +2476,11 @@ document.addEventListener("click", (ev) => {
       U.borrador.elegidas = ya ? [] : [id];
     }
     return render();
+  }
+  if (a === "tomar-turno") {
+    if (!MODO_NUBE || !db || !P) return;
+    return pase(window.FB.updateDoc(refJugador(P.codigo, miUid), { tomoTurno: claveRonda() }),
+      "No pudimos tomar el turno. Revisá la conexión.");
   }
   if (a === "enviar") {
     if (!listoParaEnviar()) return;
