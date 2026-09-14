@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#f5f2ea" />
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
 <title>Dictamen · juego de cátedra</title>
 <!-- Firebase. Se carga aparte y solo con las piezas que usamos: nada de
      inicio de sesión con Google, que arrastra un archivo de apis.google.com
@@ -460,6 +463,8 @@ const FORMATOS = {
 };
 const FORMATO_IDS = Object.keys(FORMATOS);
 const LETRAS = "ABCDEFGHIJ";
+const TIEMPOS = [[30, "30 s"], [60, "1 min"], [90, "1½ min"], [120, "2 min"],
+                 [180, "3 min"], [300, "5 min"], [600, "10 min"], [900, "15 min"]];
 
 const formatoDe = (algo) => FORMATOS[algo?.formato] ? algo.formato : "dictamen";
 
@@ -664,6 +669,7 @@ function escucharSala(codigo) {
     }
     P = d.data();
     recomponerEquipos();
+    enviarBorradorSiHaceFalta();     // por si la ronda se cerró antes de que saliera
     latido();
     render();
   }));
@@ -1350,6 +1356,7 @@ function iniciarRonda() {
   const k = claveRonda();
   cerrando = false;
   vencimientoAtendido = null;
+  borradorEnviadoDe = null;
   delete R[k]; delete PT[k];         // si se repite la ronda, arranca limpia
   const marca = MODO_NUBE && window.FB ? window.FB.serverTimestamp() : null;
   set(marca
@@ -1388,6 +1395,29 @@ function restanteSeg() {
   return (P.finRonda - Date.now()) / 1000;                      // respaldo
 }
 
+/* Lo que el equipo escribió se manda igual, aunque la ronda ya se haya
+   cerrado. Antes, en cuanto quien dicta la clase cerraba, el celular del
+   equipo dejaba de intentar y el texto se perdía: se veía como si no
+   hubieran contestado. Las reglas aceptan una respuesta que llega tarde,
+   justamente para esto. */
+let borradorEnviadoDe = null;
+function enviarBorradorSiHaceFalta() {
+  if (!P || U.rol !== "estudiante" || !U.miEquipo) return;
+  if (P.fase !== "ronda" && P.fase !== "puntuando") return;
+  if (borradorEnviadoDe === claveRonda()) return;
+  if (!meTocaEscribir()) return;
+  if (respuestaDe(U.miEquipo)?.enviada) return;
+  const algoEscrito = U.borrador.elegidas.length || U.borrador.justificacion.trim();
+  if (!algoEscrito) return;
+  borradorEnviadoDe = claveRonda();
+  return guardarRespuesta(U.miEquipo, {
+    elegidas: U.borrador.elegidas,
+    justificacion: U.borrador.justificacion,
+    enviada: true,
+    vencida: true
+  });
+}
+
 function latido() {
   if (!P || P.fase !== "ronda") { clearInterval(tick); tick = null; cerrando = false; return; }
   if (!tick) arrancarLatido();
@@ -1395,13 +1425,10 @@ function latido() {
   pintarTimer(restante);
   if (restante > 0) return;
 
-  // Al vencer el tiempo cada equipo manda una sola vez lo que tenga escrito.
+  // Al vencer el tiempo el equipo manda lo que tenga escrito.
   if (vencimientoAtendido !== claveRonda()) {
     vencimientoAtendido = claveRonda();
-    if (U.rol === "estudiante" && U.miEquipo && meTocaEscribir() && !respuestaDe(U.miEquipo)?.enviada) {
-      guardarRespuesta(U.miEquipo, {
-        elegidas: U.borrador.elegidas, justificacion: U.borrador.justificacion, enviada: true, vencida: true });
-    }
+    enviarBorradorSiHaceFalta();
   }
 
   /* Cierra quien dicta la clase. Si su celular está dormido o sin señal, a
@@ -1414,13 +1441,11 @@ function latido() {
 
 function cerrarRonda() {
   limpiarTimers();
-  // Lo que no llegó a enviarse se cierra como vencido, para que cátedra vea
-  // los cuatro equipos y no tres.
-  const pendientes = equiposActivos().filter((e) => !respuestaDe(e.id)?.enviada).map((e) => {
-    const r = respuestaDe(e.id);
-    return guardarRespuesta(e.id, {
-      elegidas: elegidasDe(r), justificacion: r?.justificacion ?? "", enviada: true, vencida: true });
-  });
+  /* No se escribe nada por los equipos que no contestaron. Antes se les
+     guardaba una respuesta vacía "para que cátedra viera a los cuatro", y esa
+     escritura pisaba la que el equipo acababa de mandar: la copia local de
+     este dispositivo todavía no la había recibido. Un equipo sin respuesta se
+     muestra como "sin responder" sin necesidad de inventarle un documento. */
   set({ fase: "puntuando", finRonda: null });
 
   /* Si la actividad lo pide, los equipos que acertaron quedan con +2 puesto,
@@ -1437,7 +1462,7 @@ function cerrarRonda() {
       if (iguales) sugerencias.push(guardarPuntaje(e.id, 2, true));
     });
   }
-  return Promise.all([...pendientes, ...sugerencias].filter(Boolean));
+  return Promise.all(sugerencias.filter(Boolean));
 }
 
 function siguienteRonda() {
@@ -1610,7 +1635,7 @@ function panelPuntaje(editable) {
   </div>
   ${referenciaHTML()}
   ${equiposActivos().map((e) => {
-    const r = respuestaDe(e.id) || {};
+    const r = respuestaDe(e.id) || { vencida: true, sinEnviar: true };
     const p = puntajeMio(e.id);
     const votos = votosDe(e.id);
     const otros = votos.filter((v) => v.uid !== (miUid || "local"));
@@ -1681,6 +1706,8 @@ function vistaHome() {
         <button class="btn ${U.modoStaff ? "catedra" : "equipo"}" data-a="entrar">
           ${U.modoStaff ? "Entrar como cátedra" : "Entrar"}
         </button>
+        ${MODO_NUBE && U.cargando ? `<p class="muted" style="text-align:center">
+          Conectando con la base de datos…</p>` : ""}
         <button class="btn link" data-a="toggle-staff">
           ${U.modoStaff ? "Soy estudiante" : "Soy del equipo de cátedra"}
         </button>
@@ -1817,9 +1844,11 @@ function vistaCrear() {
     <div class="card stack">
       <div>
         <span class="label">Tiempo por ronda</span>
-        <div class="seg">
-          ${[60, 90, 120].map((n) => `<button data-a="tiempo" data-s="${n}" aria-pressed="${cfg.segundos === n}">${n} s</button>`).join("")}
+        <div class="chips">
+          ${TIEMPOS.map(([n, etiqueta]) => `<button class="chip" data-a="tiempo" data-s="${n}"
+            aria-pressed="${cfg.segundos === n}">${etiqueta}</button>`).join("")}
         </div>
+        <p class="muted" style="margin-top:8px">Siempre podés cortar antes desde tu pantalla.</p>
       </div>
       <div>
         <span class="label">Cantidad de equipos</span>
@@ -2163,7 +2192,10 @@ function vistaClave() {
 
 async function entrar() {
   const cod = (U.codigoDraft || "").trim().toUpperCase();
-  if (nubeLista) { U.error = ""; await nubeLista; }
+  /* Si la conexión todavía se está armando, decirlo. Antes se quedaba en
+     silencio esperando y parecía que el botón no hacía nada. */
+  if (nubeLista && U.cargando) { U.error = "Conectando…"; render(); }
+  if (nubeLista) await nubeLista;
   if (cod.length < 4) { U.error = "Escribí el código de 4 letras."; return render(); }
 
   if (!MODO_NUBE) {
@@ -2212,6 +2244,7 @@ async function entrar() {
 async function enviarClave() {
   const clave = (U.claveDraft || "").trim();
   if (clave.length < 4) { U.error = "Poné al menos 4 caracteres."; return render(); }
+  if (nubeLista && U.cargando) { U.error = "Conectando…"; render(); }
   if (nubeLista) await nubeLista;
 
   if (U.cambiandoClave) {
