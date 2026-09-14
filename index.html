@@ -386,12 +386,15 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
   padding:0 14px 12px;pointer-events:none;
 }
 .toast{
-  pointer-events:auto;          /* el aviso sí recibe toques: tiene botones */
+  /* El aviso no debe tapar los botones que quedan detrás: sólo lo que haya
+     que tocar dentro del aviso recibe los toques. */
+  pointer-events:none;
   background:var(--ink);color:#fff;border-radius:var(--r-md);
   padding:13px 15px;font-size:14px;line-height:1.45;font-weight:500;
   box-shadow:0 8px 30px rgba(23,21,31,.28);
   width:min(560px,100%);margin:0 auto;
 }
+.toast .btn{pointer-events:auto}
 .toast.problema{background:var(--no)}
 .toast.red{background:#4a4360}
 
@@ -1246,13 +1249,7 @@ function limpiarTimers() {
 
 async function crearPartida() {
   if (nubeLista) await nubeLista;
-  /* Si hay base de datos configurada y no hay conexión, crear una partida es
-     peor que no crearla: quien la crea ve un código y lo dicta, y las
-     estudiantes no encuentran esa sala porque vive solo en su celular. */
-  if (FIREBASE_CONFIG.projectId && !MODO_NUBE) {
-    avisar("Sin conexión con la base de datos no se puede crear una partida: las estudiantes no podrían entrar. Recargá la página y volvé a probar.");
-    return;
-  }
+
   const rondas = cfg.elegidos
     .map((id) => BIBLIOTECA.find((x) => x.id === id))
     .filter(Boolean)
@@ -1313,6 +1310,11 @@ const claveRonda = () => "r" + P.rondaIndex;
 const opcionesRonda = () => opcionesVisibles(fragmentoActual(), formatoDe(P));
 const correctasRonda = () => correctasDe(fragmentoActual(), formatoDe(P));
 const variasRonda = () => permiteVarias(fragmentoActual(), formatoDe(P));
+/* Hay configuración de base de datos pero no se pudo conectar: lo que se
+   cree ahora no lo va a ver nadie más. No se bloquea —sirve para probar la
+   mecánica— pero el botón lo dice con todas las letras. */
+const sinNubeConConfig = () => !!FIREBASE_CONFIG.projectId && !MODO_NUBE;
+
 const consignaDe = (partida) =>
   ({ dictamen: "¿Qué dictaminan?", vf: "¿Verdadero o falso?" }[formatoDe(partida)] || "¿Qué responden?");
 const elegidasDe = (r) => (r && (r.elegidas || (r.opcion ? [r.opcion] : []))) || [];
@@ -1933,8 +1935,16 @@ function vistaCrear() {
       </div>
     </div>
 
+    ${sinNubeConConfig() ? `<div class="aviso">
+      <span><b>Sin conexión con la base de datos.</b> Una partida creada ahora vive
+      solo en este celular: las estudiantes no van a poder entrar con el código.
+      Recargá la página para reintentar la conexión, o seguí para probar la
+      mecánica vos sola.</span>
+    </div>` : ""}
     <button class="btn docente" data-a="crear" ${cfg.elegidos.length ? "" : "disabled"}>
-      Crear partida · ${cfg.elegidos.length} ronda${cfg.elegidos.length === 1 ? "" : "s"}
+      ${sinNubeConConfig()
+        ? `Crear solo en este celular · ${cfg.elegidos.length} ronda${cfg.elegidos.length === 1 ? "" : "s"}`
+        : `Crear partida · ${cfg.elegidos.length} ronda${cfg.elegidos.length === 1 ? "" : "s"}`}
     </button>
     ${MODO_NUBE ? `<button class="btn link" data-a="ir-cambiar-clave">Cambiar la clave de cátedra</button>` : ""}
   </div>`;
@@ -2025,6 +2035,8 @@ function vistaDocente() {
   const f = fragmentoActual();
   const cuerpo = {
     lobby: () => `
+      ${sinNubeConConfig() ? `<div class="aviso"><span><b>Partida local.</b>
+        Este código no existe para nadie más: no hay conexión con la base de datos.</span></div>` : ""}
       <div class="big-code">
         <p class="lbl">Código de sala</p>
         <p class="val">${esc(P.codigo)}</p>
