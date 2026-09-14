@@ -109,6 +109,19 @@ p{margin:0}
   font-size:13px;font-weight:700;color:var(--muted);
   letter-spacing:.14em;font-variant-numeric:tabular-nums;
 }
+.controles{
+  border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface-2);padding:12px 14px;
+}
+.controles summary{
+  cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);
+  letter-spacing:.04em;text-transform:uppercase;
+}
+.controles[open] summary{color:var(--catedra)}
+
+.enlinea{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.enlinea.si{background:var(--si);box-shadow:0 0 0 3px var(--si-soft)}
+.enlinea.no{background:var(--no);box-shadow:0 0 0 3px var(--no-soft)}
 .codechip b{color:var(--ink);letter-spacing:.2em}
 
 /* ---------- tarjetas ---------- */
@@ -373,11 +386,15 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
   padding:0 14px 12px;pointer-events:none;
 }
 .toast{
+  /* El aviso no debe tapar los botones que quedan detrás: sólo lo que haya
+     que tocar dentro del aviso recibe los toques. */
+  pointer-events:none;
   background:var(--ink);color:#fff;border-radius:var(--r-md);
   padding:13px 15px;font-size:14px;line-height:1.45;font-weight:500;
   box-shadow:0 8px 30px rgba(23,21,31,.28);
   width:min(560px,100%);margin:0 auto;
 }
+.toast .btn{pointer-events:auto}
 .toast.problema{background:var(--no)}
 .toast.red{background:#4a4360}
 
@@ -655,9 +672,24 @@ const refJugador = (cod, uid) => window.FB.doc(db, "salas", cod, "jugadores", ui
 function dejarDeEscuchar() { cortar.forEach((f) => f()); cortar = []; }
 
 // Escucha la sala: cada cambio que hace cualquiera redibuja esta pantalla.
+/* Ninguna de estas escuchas avisaba si se cortaba. Si una moría —por
+   permisos, por un bache de red— la pantalla dejaba de actualizarse en
+   silencio: las estudiantes entraban y no aparecían en la lista, sin ningún
+   aviso. Ahora cada una informa su error y se puede reintentar. */
+function escuchar(ref, alRecibir, nombre) {
+  cortar.push(window.FB.onSnapshot(ref, alRecibir, (e) => {
+    console.error("Se cortó la escucha de " + nombre + ":", e);
+    U.escuchaCaida = nombre;
+    U.codigoEscucha = (e && e.code) || "error";
+    render();
+  }));
+}
+
 function escucharSala(codigo) {
   dejarDeEscuchar();
-  cortar.push(window.FB.onSnapshot(refSala(codigo), (d) => {
+  U.salaEscuchada = codigo;
+  U.escuchaCaida = "";
+  escuchar(refSala(codigo), (d) => {
     if (!d.exists()) {
       // La sala se cerró: cortamos todas las escuchas antes de que fallen.
       dejarDeEscuchar();
@@ -672,13 +704,14 @@ function escucharSala(codigo) {
     enviarBorradorSiHaceFalta();     // por si la ronda se cerró antes de que saliera
     latido();
     render();
-  }));
-  cortar.push(window.FB.onSnapshot(refJugadores(codigo), (snap) => {
+  }, "la partida");
+
+  escuchar(refJugadores(codigo), (snap) => {
     J = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
     medirDesfase(J);
     recomponerEquipos();
     render();
-  }));
+  }, "los equipos");
   /* Cátedra y quien dicta la clase escuchan todas las respuestas. Un equipo
      escucha únicamente la suya: así no hay manera de espiar lo que contestó
      otro equipo mientras la ronda está abierta, ni desde la pantalla ni
@@ -688,13 +721,13 @@ function escucharSala(codigo) {
     const fuente = soyStaff
       ? refRespuestas(codigo)
       : window.FB.query(refRespuestas(codigo), window.FB.where("equipoId", "==", U.miEquipo));
-    cortar.push(window.FB.onSnapshot(fuente, (snap) => {
+    escuchar(fuente, (snap) => {
       R = {};
       snap.forEach((d) => { const x = d.data(); (R[x.ronda] ||= {})[x.equipoId] = x; });
       render();
-    }));
+    }, "las respuestas");
   }
-  cortar.push(window.FB.onSnapshot(refPuntajes(codigo), (snap) => {
+  escuchar(refPuntajes(codigo), (snap) => {
     PT = {};
     snap.forEach((d) => {
       const x = d.data();
@@ -704,7 +737,7 @@ function escucharSala(codigo) {
       if (i >= 0) lista[i] = entrada; else lista.push(entrada);
     });
     render();
-  }));
+  }, "los puntajes");
 }
 
 // Los equipos no se guardan: se deducen de quién está conectado.
@@ -814,7 +847,16 @@ async function reconectar() {
     if (!sala.exists()) return olvidarSesion();
     if (sala.data().fase === "fin") return olvidarSesion();
     const mio = await window.FB.getDoc(refJugador(guardada.codigo, miUid));
-    if (!mio.exists()) return olvidarSesion();
+    if (!mio.exists()) {
+      /* La sala está viva pero este dispositivo ya no figura en ella: pasa si
+         el navegador perdió su identidad anónima. En vez de dejar a quien
+         dicta la clase afuera de su propia sala, le ofrecemos volver con el
+         PIN, que da los mismos controles. */
+      U.sesionPerdida = guardada.codigo;
+      U.codigoDraft = guardada.codigo;
+      U.modoStaff = true;
+      return olvidarSesion();
+    }
     U.rol = mio.data().rol || guardada.rol;
     U.miEquipo = mio.data().equipoId || null;
     U.nombreDraft = mio.data().nombre || "";
@@ -1144,6 +1186,10 @@ let U = {
   tomeAlguna: null,   // ronda en la que este dispositivo tomó el turno
   sinRed: typeof navigator !== "undefined" && navigator.onLine === false,
   nubeCaida: false,   // hay configuración pero no se pudo conectar
+  escuchaCaida: "",   // qué escucha se cortó
+  codigoEscucha: "",
+  salaEscuchada: "",
+  sesionPerdida: "",  // sala que estaba abierta y no se pudo retomar
   borrador: { elegidas: [], justificacion: "" },
   borradorDe: null,   // a qué ronda pertenece el borrador
   editando: null,     // id del fragmento en edición, o "nuevo"
@@ -1203,6 +1249,7 @@ function limpiarTimers() {
 
 async function crearPartida() {
   if (nubeLista) await nubeLista;
+
   const rondas = cfg.elegidos
     .map((id) => BIBLIOTECA.find((x) => x.id === id))
     .filter(Boolean)
@@ -1263,6 +1310,11 @@ const claveRonda = () => "r" + P.rondaIndex;
 const opcionesRonda = () => opcionesVisibles(fragmentoActual(), formatoDe(P));
 const correctasRonda = () => correctasDe(fragmentoActual(), formatoDe(P));
 const variasRonda = () => permiteVarias(fragmentoActual(), formatoDe(P));
+/* Hay configuración de base de datos pero no se pudo conectar: lo que se
+   cree ahora no lo va a ver nadie más. No se bloquea —sirve para probar la
+   mecánica— pero el botón lo dice con todas las letras. */
+const sinNubeConConfig = () => !!FIREBASE_CONFIG.projectId && !MODO_NUBE;
+
 const consignaDe = (partida) =>
   ({ dictamen: "¿Qué dictaminan?", vf: "¿Verdadero o falso?" }[formatoDe(partida)] || "¿Qué responden?");
 const elegidasDe = (r) => (r && (r.elegidas || (r.opcion ? [r.opcion] : []))) || [];
@@ -1495,7 +1547,11 @@ function topbar() {
   const etiqueta = { docente: "Docente", catedra: "Cátedra", estudiante: equipoMio()?.nombre || "Estudiante" }[U.rol];
   return `<div class="topbar">
     <span class="rolechip ${U.rol}"><i class="dot"></i>${esc(etiqueta)}</span>
-    <span class="codechip">SALA <b>${esc(P.codigo)}</b></span>
+    <span class="row" style="gap:8px">
+      ${FIREBASE_CONFIG.projectId ? `<span class="enlinea ${MODO_NUBE && !U.escuchaCaida ? "si" : "no"}"
+        title="${MODO_NUBE && !U.escuchaCaida ? "Conectada" : "Sin conexión"}"></span>` : ""}
+      <span class="codechip">SALA <b>${esc(P.codigo)}</b></span>
+    </span>
   </div>`;
 }
 
@@ -1623,6 +1679,20 @@ function rankingHTML(destacarMio) {
     </div>`).join("")}</div>`;
 }
 
+/* Cátedra puede manejar el ritmo si hace falta: si al dispositivo de quien
+   dicta la clase se le acaba la batería o pierde su identidad, la partida no
+   queda trabada. Va detrás de un toque para que no se use por accidente. */
+function controlesCatedra(botones) {
+  return `<details class="controles">
+    <summary>Controles de la partida</summary>
+    <div class="stack" style="margin-top:12px">
+      <p class="muted">Normalmente los maneja quien dicta la clase. Usalos si su
+        dispositivo no responde.</p>
+      ${botones}
+    </div>
+  </details>`;
+}
+
 function panelPuntaje(editable) {
   const crit = criterioDe(P);
   return `
@@ -1704,6 +1774,10 @@ function vistaHome() {
           <span class="label">PIN de cátedra</span>
           <input class="pin-input" id="pin" type="tel" inputmode="numeric" maxlength="4" placeholder="0000" value="${esc(U.pinDraft)}" />
         </label>` : ""}
+        ${U.sesionPerdida ? `<div class="aviso"><span>Tenías abierta la sala
+          <b>${esc(U.sesionPerdida)}</b> y este navegador perdió su identidad.
+          La sala sigue viva: entrá con su PIN de cátedra y recuperás los
+          controles de la partida.</span></div>` : ""}
         ${U.error ? `<div class="aviso">${esc(U.error)}</div>` : ""}
         <button class="btn ${U.modoStaff ? "catedra" : "equipo"}" data-a="entrar">
           ${U.modoStaff ? "Entrar como cátedra" : "Entrar"}
@@ -1861,8 +1935,16 @@ function vistaCrear() {
       </div>
     </div>
 
+    ${sinNubeConConfig() ? `<div class="aviso">
+      <span><b>Sin conexión con la base de datos.</b> Una partida creada ahora vive
+      solo en este celular: las estudiantes no van a poder entrar con el código.
+      Recargá la página para reintentar la conexión, o seguí para probar la
+      mecánica vos sola.</span>
+    </div>` : ""}
     <button class="btn docente" data-a="crear" ${cfg.elegidos.length ? "" : "disabled"}>
-      Crear partida · ${cfg.elegidos.length} ronda${cfg.elegidos.length === 1 ? "" : "s"}
+      ${sinNubeConConfig()
+        ? `Crear solo en este celular · ${cfg.elegidos.length} ronda${cfg.elegidos.length === 1 ? "" : "s"}`
+        : `Crear partida · ${cfg.elegidos.length} ronda${cfg.elegidos.length === 1 ? "" : "s"}`}
     </button>
     ${MODO_NUBE ? `<button class="btn link" data-a="ir-cambiar-clave">Cambiar la clave de cátedra</button>` : ""}
   </div>`;
@@ -1953,6 +2035,8 @@ function vistaDocente() {
   const f = fragmentoActual();
   const cuerpo = {
     lobby: () => `
+      ${sinNubeConConfig() ? `<div class="aviso"><span><b>Partida local.</b>
+        Este código no existe para nadie más: no hay conexión con la base de datos.</span></div>` : ""}
       <div class="big-code">
         <p class="lbl">Código de sala</p>
         <p class="val">${esc(P.codigo)}</p>
@@ -2024,27 +2108,33 @@ function vistaCatedra() {
   const cuerpo = {
     lobby: () => `${pasos()}
       ${esperando("Esperando el arranque", "Quien dicta la clase inicia la ronda " + (P.rondaIndex + 1) + ".")}
-      ${fragmentoHTML(f)}`,
+      ${fragmentoHTML(f)}
+      ${controlesCatedra(`<button class="btn catedra" data-a="iniciar">Iniciar ronda ${P.rondaIndex + 1}</button>`)}`,
 
     ronda: () => `${pasos()}
       <div class="card stack">${timerHTML()}
         <div class="row"><span class="muted">Respuestas recibidas</span><span class="spacer"></span>
           <b>${respondidos()} de ${cuantosJuegan()}</b></div>
       </div>
-      ${fragmentoHTML(f)}`,
+      ${fragmentoHTML(f)}
+      ${controlesCatedra(`<button class="btn ghost" data-a="cortar">Cortar el tiempo y pasar a puntuar</button>`)}`,
 
     puntuando: () => `${pasos()}
       <div class="card stack"><h2>A puntuar</h2>
         <p class="lead">+2, +1 o 0 por respuesta. Sin comentarios de texto.</p></div>
       ${panelPuntaje(true)}
       ${puntuados() === cuantosJuegan()
-        ? `<div class="aviso">Listo. Ahora quien dicta la clase revela el puntaje.</div>` : ""}`,
+        ? `<div class="aviso">Listo. Ahora quien dicta la clase revela el puntaje.</div>` : ""}
+      ${controlesCatedra(`<button class="btn catedra" data-a="revelar"
+        ${puntuados() === cuantosJuegan() ? "" : "disabled"}>Revelar puntaje</button>`)}`,
 
     revelado: () => `${pasos()}
       <div class="card stack"><h2>Puntaje revelado</h2></div>
       ${destacadaHTML()}
       ${rankingHTML(false)}
-      ${esperando("Esperando", "Quien dicta la clase avanza a la ronda siguiente.")}`,
+      ${esperando("Esperando", "Quien dicta la clase avanza a la ronda siguiente.")}
+      ${controlesCatedra(`<button class="btn catedra" data-a="siguiente">
+        ${P.rondaIndex + 1 < P.rondas.length ? "Siguiente ronda" : "Terminar partida"}</button>`)}`,
 
     fin: () => `<div class="card stack"><h1>Partida terminada</h1></div>${rankingHTML(false)}
       <button class="btn ghost" data-a="home">Volver al inicio</button>`
@@ -2233,7 +2323,7 @@ async function entrar() {
 
     const rol = U.modoStaff ? "catedra" : "estudiante";
     U.miEquipo = await sumarmeALaSala(cod, rol, U.nombreDraft.trim(), sala.data().cantidadEquipos || 4);
-    U.rol = rol; U.error = ""; U.pantalla = "partida";
+    U.rol = rol; U.error = ""; U.pantalla = "partida"; U.sesionPerdida = "";
     recordarSesion(cod, rol);
     escucharSala(cod);
     render();
@@ -2299,6 +2389,10 @@ function render() {
   $("#avisos").innerHTML =
     (U.nubeCaida ? `<div class="toast problema">No pudimos conectarnos con la base de datos.
       Esta partida <b>no se comparte</b> con otros celulares. Recargá la página para reintentar.</div>` : "") +
+    (U.escuchaCaida ? `<div class="toast problema">Se cortó la conexión con ${esc(U.escuchaCaida)}
+      (${esc(U.codigoEscucha)}). La pantalla puede estar desactualizada.
+      <button class="btn sm" data-a="reenganchar" style="margin-top:8px;background:#fff;color:var(--no)">
+        Reconectar</button></div>` : "") +
     (U.sinRed ? `<div class="toast red">Sin conexión. La partida se pone al día cuando vuelva internet.</div>` : "") +
     (U.aviso ? `<div class="toast problema">${esc(U.aviso)}</div>` : "");
 
@@ -2355,6 +2449,10 @@ document.addEventListener("click", (ev) => {
     const ejemplos = BIBLIOTECA.filter((f) => f.tipo === "estado").slice(0, 2);
     cfg = { tipo: "estado", segundos: 90, equipos: 4, elegidos: ejemplos.map((f) => f.id) };
     return crearPartida();
+  }
+  if (a === "reenganchar") {
+    if (U.salaEscuchada) escucharSala(U.salaEscuchada);
+    return render();
   }
   if (a === "descargar") return descargarResumen();
   if (a === "cerrar-partida") {
