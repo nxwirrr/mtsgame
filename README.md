@@ -128,6 +128,10 @@ Contesta cuatro preguntas:
   están por vencer y de las que ya vencieron
 - Suscripciones en pesos o en dólares, mensuales o anuales; las anuales pesan
   en su mes y aparte se ve cuánto conviene reservar por mes para ellas
+- Tres estados por suscripción: activa, **dada de baja** y **no sé si la
+  cancelé**. Las dudosas no son gasto del mes —todavía no se sabe si cobran—
+  pero se suman aparte: cuánto haría falta tener a mano si cobran todas. Es
+  para dejar de guardar de más por las dudas de todo
 - Cuotas con su cantidad y su mes de arranque, cuánto falta pagar y en qué mes
   se libera cada peso, a doce meses
 - Dólar oficial, libre y tarjeta —con el recargo editable, porque los

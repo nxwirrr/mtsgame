@@ -359,10 +359,25 @@ const hayDolar = () => num(D.dolar.oficial) > 0;
 /* ============================================================
    CÁLCULO DEL MES
    ============================================================ */
+/* Una suscripción puede estar en tres estados:
+     activa — la usás y te la cobran: es gasto del mes;
+     duda   — creés haberla cancelado pero no estás segura: no es gasto,
+              es riesgo, y se muestra aparte para saber cuánto habría que
+              tener a mano por las dudas;
+     baja   — dada de baja. No cuenta, pero queda anotada: si igual
+              aparece un cobro, ya sabés cuál fue.
+   Lo cargado antes de que esto existiera no tiene estado: es activa. */
+const estadoDe = s => s.estado || "activa";
+function enElMes(s, k){
+  return s.ciclo !== "anual" || Number(s.mesCobro) === mesPartes(k).m;
+}
 function subsDelMes(k){
   // Una anual solo pesa en el mes en que se cobra; el resto del
   // año se ve como provisión aparte, no como gasto del mes.
-  return D.subs.filter(s => s.ciclo !== "anual" || Number(s.mesCobro) === mesPartes(k).m);
+  return D.subs.filter(s => estadoDe(s) === "activa" && enElMes(s, k));
+}
+function subsEnDuda(k){
+  return D.subs.filter(s => estadoDe(s) === "duda" && enElMes(s, k));
 }
 function cuotasDelMes(k){
   return D.cuotas.filter(c => {
@@ -420,14 +435,17 @@ function resumen(k){
 
   // Provisión de las anuales: lo que conviene reservar por mes
   // para que en su mes no sea un golpe.
-  const anuales = D.subs.filter(s => s.ciclo === "anual");
+  const anuales = D.subs.filter(s => s.ciclo === "anual" && estadoDe(s) !== "baja");
   const provision = anuales.reduce((s,x)=> s + aPesos(x.monto, x.moneda, x.cotiza)/12, 0);
+
+  // El peor caso de las dudosas: si te cobran todas este mes.
+  const duda = subsEnDuda(k).reduce((s,x)=> s + aPesos(x.monto, x.moneda, x.cotiza), 0);
 
   const usdMes = subsDelMes(k).filter(s=>s.moneda==="USD").reduce((s,x)=>s+num(x.monto),0)
                + D.cuentas.filter(c=>c.moneda==="USD").reduce((s,x)=>s+num(x.monto),0)
                + cuotasDelMes(k).filter(c=>c.moneda==="USD").reduce((s,x)=>s+num(x.montoCuota),0);
 
-  return { k, filas, entra, sale, cuentas, subs, cuotas, extras, ahorro, random,
+  return { k, filas, entra, sale, cuentas, subs, cuotas, extras, ahorro, random, duda,
            libre: entra - sale, disponible: entra - sale - ahorro - random,
            yaPague, faltaPagar, provision, usdMes, ing };
 }
@@ -611,9 +629,16 @@ function vistaResumen(r){
         <span class="d">salidas, antojos, lo imprevisto</span></div>
       <div class="cifra"><span class="k">Para las anuales</span><span class="v num">${pesos(r.provision)}</span>
         <span class="d">provisión mensual de lo que se paga una vez al año</span></div>
+      <div class="cifra ${r.duda > 0 ? "aviso" : ""}"><span class="k">Por si te cobran</span>
+        <span class="v num">${pesos(r.duda)}</span>
+        <span class="d">${r.duda > 0 ? "suscripciones que no sabés si cancelaste"
+          : "no tenés ninguna suscripción en duda"}</span></div>
       <div class="cifra"><span class="k">Por día</span><span class="v num">${pesos(Math.max(0,r.random)/diasDelMes(r.k))}</span>
         <span class="d">lo random repartido en el mes</span></div>
     </div>
+    ${r.duda > 0 ? `<div class="aviso-linea">Tenés ${subsEnDuda(r.k).length} suscripción${
+      subsEnDuda(r.k).length===1?"":"es"} en duda: guardando <b>${pesos(r.duda)}</b> estás cubierta
+      aunque te cobren todas. No hace falta más.</div>` : ""}
   </section>
 
   <section class="card">
@@ -689,6 +714,10 @@ const CAMPOS = {
     {k:"ciclo", e:"Cada cuánto", t:"select", ops:[["mensual","por mes"],["anual","por año"]], def:"mensual"},
     {k:"mesCobro", e:"Mes del cobro", t:"select", ops:OPS_MES, def:String(hoy.getMonth()+1), soloAnual:true},
     {k:"dia", e:"Día del cobro", t:"number", def:"1"},
+    {k:"estado", e:"Estado", t:"select", def:"activa", ancho:true,
+     ops:[["activa","la uso y me la cobran"],
+          ["duda","no sé si la cancelé"],
+          ["baja","dada de baja"]]},
   ],
   cuotas:[
     {k:"nombre", e:"Qué compraste", t:"text", ancho:true, ph:"Celular, heladera, pasajes"},
@@ -815,9 +844,24 @@ function vistaCuentas(r){
 }
 
 /* ---------- SUSCRIPCIONES ---------- */
+const porMes = x => aPesos(x.monto, x.moneda, x.cotiza) / (x.ciclo === "anual" ? 12 : 1);
+
+function listaSubs(subs){
+  return `<div class="lista">${subs.slice().sort((a,b)=> porMes(b) - porMes(a)).map(s=>filaEditable(s,"subs",
+    `${plata(num(s.monto), s.moneda)}${s.moneda==="USD"?`<small>${pesos(aPesos(s.monto,"USD",s.cotiza))}</small>`:""}`,
+    `${s.ciclo==="anual" ? `una vez al año, en ${MESES[Number(s.mesCobro||1)-1]}` : "por mes"} · día ${s.dia||1}${
+      s.moneda==="USD" ? ` · al ${(s.cotiza||"tarjeta")}` : ""}`,
+    `${s.moneda==="USD"?`<span class="chip usd">USD</span>`:""}${s.ciclo==="anual"?`<span class="chip">anual</span>`:""}`
+  )).join("")}</div>`;
+}
+
 function vistaSubs(r){
-  const mensualizado = D.subs.reduce((s,x)=> s + aPesos(x.monto,x.moneda,x.cotiza)/(x.ciclo==="anual"?12:1), 0);
-  const usd = D.subs.filter(s=>s.moneda==="USD");
+  const activas = D.subs.filter(s => estadoDe(s) === "activa");
+  const dudosas = D.subs.filter(s => estadoDe(s) === "duda");
+  const bajas   = D.subs.filter(s => estadoDe(s) === "baja");
+  const mensualizado = activas.reduce((s,x)=> s + porMes(x), 0);
+  const riesgo = dudosas.reduce((s,x)=> s + porMes(x), 0);
+  const usd = activas.filter(s=>s.moneda==="USD");
   const usdMes = usd.reduce((s,x)=> s + num(x.monto)/(x.ciclo==="anual"?12:1), 0);
   return `${avisoDolar()}
   <section class="card">
@@ -826,27 +870,44 @@ function vistaSubs(r){
       <div class="cifra"><span class="k">Costo parejo</span><span class="v num">${pesos(mensualizado)}</span>
         <span class="d">por mes, repartiendo las anuales</span></div>
       <div class="cifra"><span class="k">En un año</span><span class="v num">${pesos(mensualizado*12)}</span>
-        <span class="d">lo que te salen las ${D.subs.length} juntas</span></div>
+        <span class="d">lo que te salen las ${activas.length} activas</span></div>
       <div class="cifra"><span class="k">En dólares</span><span class="v num">${dolares(usdMes)}</span>
-        <span class="d">por mes, ${usd.length} de ${D.subs.length}</span></div>
+        <span class="d">por mes, ${usd.length} de ${activas.length}</span></div>
     </div>
     ${D.subs.length === 0 ? `<div class="vacio">Sin suscripciones. Mirá el resumen de la tarjeta:
-      siempre aparece alguna que ya no usás.</div>` :
-      `<div class="lista">${D.subs.slice()
-        .sort((a,b)=> aPesos(b.monto,b.moneda,b.cotiza)/(b.ciclo==="anual"?12:1)
-                    - aPesos(a.monto,a.moneda,a.cotiza)/(a.ciclo==="anual"?12:1))
-        .map(s=>filaEditable(s,"subs",
-          `${plata(num(s.monto), s.moneda)}${s.moneda==="USD"?`<small>${pesos(aPesos(s.monto,"USD",s.cotiza))}</small>`:""}`,
-          `${s.ciclo==="anual" ? `una vez al año, en ${MESES[Number(s.mesCobro||1)-1]}` : "por mes"} · día ${s.dia||1}${
-            s.moneda==="USD" ? ` · al ${(s.cotiza||"tarjeta")}` : ""}`,
-          `${s.moneda==="USD"?`<span class="chip usd">USD</span>`:""}${s.ciclo==="anual"?`<span class="chip">anual</span>`:""}`
-        )).join("")}</div>`}
+      siempre aparece alguna que ya no usás.</div>` : activas.length === 0 ?
+      `<div class="vacio">Ninguna activa.</div>` : listaSubs(activas)}
     ${forma("subs","Sumar una suscripción")}
     ${mensualizado>0 && r.entra>0 ? `<div class="aviso-linea ${mensualizado/r.entra>0.12?"malo":"bueno"}">
       Las suscripciones se llevan <b>${nf2.format(mensualizado/r.entra*100)} %</b> de lo que entra.
       ${mensualizado/r.entra>0.12 ? "Es bastante: mirá las tres de arriba, que son las que pesan."
         : "Está en un rango sano."}</div>`:""}
-  </section>`;
+  </section>
+
+  <section class="card">
+    <header><h2>Las que no sabés si cancelaste</h2>
+      <span class="hint">${dudosas.length ? pesos(riesgo) + " por mes" : "ninguna"}</span></header>
+    <p class="sub">Anotá acá cada membresía que creés haber dado de baja pero no estás segura.
+      No cuentan como gasto del mes —todavía no sabés si te las cobran— pero la app te dice cuánta
+      plata habría que tener a mano por las dudas. Es más barato que guardar de más por las dudas
+      de todo.</p>
+    ${dudosas.length === 0 ? `<div class="vacio">Ninguna en duda. Cuando cargues una, elegí
+      <b>no sé si la cancelé</b> en Estado.</div>` : `
+      ${listaSubs(dudosas)}
+      <div class="aviso-linea">Si te cobran todas, este mes son <b>${pesos(riesgo)}</b>.
+        Con eso apartado alcanza${r.entra ? `: es el ${nf2.format(riesgo/r.entra*100)} % de lo que entra` : ""}.
+        En un año, <b>${pesos(riesgo*12)}</b> de no haberlas cancelado.</div>
+      <p class="sub">Cuando confirmes una, cambiale el estado: <b>la uso y me la cobran</b> si el
+        cobro apareció, <b>dada de baja</b> si no. Mirá el resumen del mes que viene: lo que no
+        aparezca ahí, está cancelado de verdad.</p>`}
+  </section>
+
+  ${bajas.length ? `<section class="card">
+    <header><h2>Dadas de baja</h2><span class="hint">${bajas.length}</span></header>
+    <p class="sub">No cuentan en ningún número. Quedan anotadas para que, si igual aparece un
+      cobro, sepas de cuál es.</p>
+    ${listaSubs(bajas)}
+  </section>` : ""}`;
 }
 
 /* ---------- CUOTAS ---------- */
