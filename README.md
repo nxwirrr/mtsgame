@@ -97,3 +97,51 @@ Para desarrollo, `?emulador=1` conecta contra un Firestore local
 | `index.html` | La aplicación |
 | `firestore.rules` | Reglas de seguridad, para pegar en la consola de Firebase |
 | `prototipo-v1.html` | Prototipo anterior (sincronizaba celular a celular con PeerJS). Se conserva como referencia; no se usa. |
+| `finanzas.html` | Plata: finanzas personales del mes. Aplicación aparte, sin relación con el juego. |
+
+---
+
+# Plata · finanzas del mes
+
+`finanzas.html` es otra aplicación entera en un archivo. Se abre en cualquier
+navegador y no necesita instalar nada, ni cuenta, ni internet: todo lo que se
+carga queda en el `localStorage` de ese navegador y no sale del dispositivo.
+
+Contesta cuatro preguntas:
+
+1. **cuánta plata hay** — lo que entra, lo que ya está comprometido y lo que
+   queda libre de verdad, mes por mes;
+2. **cuánto se va** — cuentas fijas con su día de vencimiento, suscripciones,
+   cuotas y gastos sueltos, con lo pagado y lo que falta pagar;
+3. **cuánto se puede guardar** — ahorro y gastos random como reservas que
+   salen antes de que la plata se evapore, en porcentaje o en monto fijo;
+4. **si conviene una compra** — contado contra cuotas, y si la cuota entra
+   en el mes.
+
+### Qué hace
+
+- Resumen del mes con la composición del gasto y el aviso cuando no cierra
+- Navegación por mes: lo de cada mes se calcula solo, con los gastos únicos y
+  las cuotas que caen ahí
+- Cuentas con vencimiento, marcadas como pagadas mes a mes; aviso de las que
+  están por vencer y de las que ya vencieron
+- Suscripciones en pesos o en dólares, mensuales o anuales; las anuales pesan
+  en su mes y aparte se ve cuánto conviene reservar por mes para ellas
+- Cuotas con su cantidad y su mes de arranque, cuánto falta pagar y en qué mes
+  se libera cada peso, a doce meses
+- Dólar oficial, libre y tarjeta —con el recargo editable, porque los
+  impuestos cambian seguido—, cotizaciones de dolarapi.com con un botón y,
+  si no hay internet, a mano; tabla de qué pasa si el dólar sube 10, 25 o 50 %
+- Calculadora de compras: descuenta las cuotas a la tasa que compite con
+  ellas (la inflación, o lo que rinde la plata), saca el interés implícito
+  —TNA y efectiva anual— y dice si conviene el contado o las cuotas, si la
+  cuota entra en el mes y cuánto de lo que entra quedaría atado a cuotas
+- La compra que convenga se suma a las cuotas con un botón
+- Exportar e importar los datos en un archivo, y datos de ejemplo para
+  mirarla funcionando antes de cargar los propios
+
+### Lo que la aplicación no hace
+
+No se conecta al banco ni lee resúmenes de tarjeta: los números se cargan a
+mano. No es asesoramiento financiero; es una calculadora que hace explícito
+lo que uno ya intuye.

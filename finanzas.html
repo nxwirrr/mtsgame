@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#f5f2ea" />
+<title>Plata · finanzas del mes</title>
+<style>
+/* ============================================================
+   DISEÑO — tokens
+   Misma familia visual que el resto del repositorio: fondo
+   cálido, tarjetas blancas, alto contraste, pensado para el
+   celular antes que para la computadora.
+   ============================================================ */
+:root{
+  --bg:#f5f2ea;
+  --surface:#ffffff;
+  --surface-2:#faf8f3;
+  --ink:#17151f;
+  --ink-2:#3d3850;
+  --muted:#726c85;
+  --line:#e6e0d4;
+  --line-2:#d5cdbc;
+
+  --acento:#4b39d8;
+  --acento-soft:#ece9ff;
+  --dolar:#0f766e;
+  --dolar-soft:#e2f4f1;
+
+  --si:#15803d;
+  --si-soft:#e7f6ec;
+  --obs:#b45309;
+  --obs-soft:#fdf1e0;
+  --no:#be123c;
+  --no-soft:#fdeaef;
+
+  --r-lg:20px;
+  --r-md:14px;
+  --r-sm:10px;
+  --shadow:0 1px 2px rgba(23,21,31,.06), 0 8px 24px rgba(23,21,31,.07);
+  --shadow-sm:0 1px 2px rgba(23,21,31,.07);
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+h1,h2,h3{margin:0;line-height:1.15;letter-spacing:-.02em;font-weight:800}
+h1{font-size:24px}
+h2{font-size:19px}
+h3{font-size:15px;letter-spacing:-.01em}
+p{margin:0}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- estructura ---------- */
+#app{min-height:100dvh;display:flex;flex-direction:column}
+main{
+  flex:1;
+  width:min(720px,100%);
+  margin:0 auto;
+  padding:14px 16px calc(28px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:14px;
+}
+header.top{
+  position:sticky;top:0;z-index:20;
+  background:rgba(245,242,234,.92);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.top-in{
+  width:min(720px,100%);margin:0 auto;
+  padding:10px 16px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.marca{font-weight:800;letter-spacing:-.02em;font-size:18px;margin-right:auto}
+.marca span{color:var(--acento)}
+
+/* selector de mes */
+.mes{display:flex;align-items:center;gap:4px;background:var(--surface);
+     border:1px solid var(--line);border-radius:999px;padding:3px;box-shadow:var(--shadow-sm)}
+.mes button{width:32px;height:32px;border-radius:999px;font-size:17px;color:var(--ink-2);
+            display:grid;place-items:center}
+.mes button:hover{background:var(--surface-2)}
+.mes .label{padding:0 8px;font-weight:700;font-size:14px;min-width:120px;text-align:center}
+
+/* pestañas */
+nav.tabs{
+  display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+  padding:0 16px 10px;width:min(720px,100%);margin:0 auto;
+}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{
+  white-space:nowrap;padding:8px 14px;border-radius:999px;
+  background:var(--surface);border:1px solid var(--line);
+  font-size:14px;font-weight:600;color:var(--ink-2);
+}
+nav.tabs button[aria-current="page"]{
+  background:var(--ink);border-color:var(--ink);color:#fff;
+}
+
+/* tarjetas */
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px;
+}
+.card > header{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.card > header .hint{font-size:13px;color:var(--muted);margin-left:auto}
+.sub{font-size:13px;color:var(--muted)}
+
+/* grilla de cifras */
+.cifras{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.cifra{
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:12px 13px;display:flex;flex-direction:column;gap:2px;
+}
+.cifra .k{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.cifra .v{font-size:21px;font-weight:800;letter-spacing:-.02em}
+.cifra .d{font-size:12px;color:var(--muted)}
+.cifra.grande .v{font-size:clamp(20px,6.5vw,27px)}
+.cifra.ok{background:var(--si-soft);border-color:#bfe3cb}
+.cifra.ok .v{color:var(--si)}
+.cifra.mal{background:var(--no-soft);border-color:#f3c8d3}
+.cifra.mal .v{color:var(--no)}
+.cifra.aviso{background:var(--obs-soft);border-color:#f0d9ad}
+.cifra.aviso .v{color:var(--obs)}
+
+/* barra de composición */
+.barra{display:flex;height:16px;border-radius:999px;overflow:hidden;background:var(--surface-2);
+       border:1px solid var(--line)}
+.barra div{height:100%}
+.leyenda{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--ink-2)}
+.leyenda span{display:flex;align-items:center;gap:6px}
+.punto{width:10px;height:10px;border-radius:3px;flex:none}
+
+/* listas */
+.lista{display:flex;flex-direction:column;gap:8px}
+.item{
+  display:flex;align-items:center;gap:10px;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:10px 12px;
+}
+.item .cuerpo{flex:1;min-width:0}
+.item .nom{font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .meta{font-size:12.5px;color:var(--muted)}
+.item .plata{font-weight:800;text-align:right;white-space:nowrap}
+.item .plata small{display:block;font-weight:600;color:var(--muted);font-size:11.5px}
+.item.pagado{opacity:.55}
+.item.pagado .nom{text-decoration:line-through}
+.vacio{
+  border:1px dashed var(--line-2);border-radius:var(--r-md);padding:16px;
+  text-align:center;color:var(--muted);font-size:14px;background:var(--surface-2);
+}
+
+.chip{
+  font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;
+  background:var(--acento-soft);color:var(--acento);white-space:nowrap;
+}
+.chip.usd{background:var(--dolar-soft);color:var(--dolar)}
+.chip.venc{background:var(--no-soft);color:var(--no)}
+.chip.pronto{background:var(--obs-soft);color:var(--obs)}
+.chip.listo{background:var(--si-soft);color:var(--si)}
+
+/* botones */
+.btn{
+  padding:10px 15px;border-radius:999px;font-weight:700;font-size:14.5px;
+  background:var(--ink);color:#fff;border:1px solid var(--ink);
+}
+.btn:hover{background:#2b2738}
+.btn.sec{background:var(--surface);color:var(--ink);border-color:var(--line-2)}
+.btn.sec:hover{background:var(--surface-2)}
+.btn.chico{padding:6px 11px;font-size:13px}
+.btn.peligro{background:var(--no-soft);color:var(--no);border-color:#f3c8d3}
+.icono{
+  width:32px;height:32px;border-radius:999px;display:grid;place-items:center;flex:none;
+  border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);font-size:15px;
+}
+.icono:hover{background:var(--surface-2)}
+.icono.marcado{background:var(--si);border-color:var(--si);color:#fff}
+.acciones{display:flex;gap:8px;flex-wrap:wrap}
+
+/* formularios */
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+label.campo{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+label.campo input,label.campo select{
+  padding:9px 11px;border-radius:var(--r-sm);border:1px solid var(--line-2);
+  background:var(--surface);font-size:15px;width:100%;
+}
+label.campo input:focus,label.campo select:focus{outline:2px solid var(--acento);outline-offset:1px;border-color:var(--acento)}
+label.campo.ancho{grid-column:1/-1}
+.ayuda{font-size:12px;color:var(--muted);font-weight:500}
+
+details.forma{border:1px dashed var(--line-2);border-radius:var(--r-md);padding:0;background:var(--surface-2)}
+details.forma > summary{padding:11px 14px;font-weight:700;font-size:14.5px;cursor:pointer;color:var(--acento)}
+details.forma[open] > summary{border-bottom:1px solid var(--line)}
+details.forma .adentro{padding:14px;display:flex;flex-direction:column;gap:12px}
+
+/* veredicto de la calculadora */
+.veredicto{border-radius:var(--r-md);padding:14px;border:1px solid;display:flex;flex-direction:column;gap:6px}
+.veredicto .t{font-size:18px;font-weight:800;letter-spacing:-.02em}
+.veredicto.si{background:var(--si-soft);border-color:#bfe3cb;color:#0d5c2c}
+.veredicto.no{background:var(--no-soft);border-color:#f3c8d3;color:#8d0e2e}
+.veredicto.ojo{background:var(--obs-soft);border-color:#f0d9ad;color:#8a4109}
+.veredicto ul{margin:4px 0 0;padding-left:20px;font-size:14px}
+.veredicto li{margin:2px 0}
+
+table.tabla{width:100%;border-collapse:collapse;font-size:14px}
+table.tabla th,table.tabla td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right}
+table.tabla th:first-child,table.tabla td:first-child{text-align:left}
+table.tabla td.num{white-space:nowrap}
+table.tabla th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+
+.aviso-linea{
+  font-size:13.5px;padding:9px 12px;border-radius:var(--r-sm);
+  background:var(--obs-soft);border:1px solid #f0d9ad;color:#8a4109;
+}
+.aviso-linea.bueno{background:var(--si-soft);border-color:#bfe3cb;color:#0d5c2c}
+.aviso-linea.malo{background:var(--no-soft);border-color:#f3c8d3;color:#8d0e2e}
+
+footer.pie{
+  width:min(720px,100%);margin:0 auto;padding:4px 16px 26px;
+  font-size:12.5px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+}
+@media (max-width:420px){
+  .cifra .v{font-size:19px}
+  .cifra.grande .v{font-size:21px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="top-in">
+      <div class="marca">Plata<span>.</span></div>
+      <div class="mes">
+        <button id="mes-ant" title="Mes anterior" aria-label="Mes anterior">‹</button>
+        <div class="label num" id="mes-label">—</div>
+        <button id="mes-sig" title="Mes siguiente" aria-label="Mes siguiente">›</button>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+  </header>
+  <main id="vista"></main>
+  <footer class="pie">
+    <span>Todo se guarda en este navegador. Nada sale de tu teléfono.</span>
+    <button class="btn sec chico" id="exportar">Exportar datos</button>
+    <button class="btn sec chico" id="importar">Importar</button>
+    <button class="btn sec chico" id="ejemplo">Cargar ejemplo</button>
+    <button class="btn peligro chico" id="borrar">Borrar todo</button>
+    <input type="file" id="archivo" accept="application/json" hidden />
+  </footer>
+</div>
+<script>
+/* ============================================================
+   PLATA — finanzas del mes
+   Una sola página, sin servidor y sin cuentas: los datos viven
+   en el localStorage del navegador que la abre.
+
+   Cuatro preguntas que la app contesta:
+     1. cuánta plata entra y cuánta ya está comprometida
+     2. qué me queda para ahorrar y para gastos sueltos
+     3. cuánto me pesan las suscripciones en dólares
+     4. si me conviene comprar algo este mes, y en cuántas cuotas
+   ============================================================ */
+
+/* ---------- guardado ---------- */
+const LLAVE = "plata.v1";
+
+const VACIO = () => ({
+  version: 1,
+  calc: null,
+  dolar: { oficial: 0, blue: 0, recargoTarjeta: 30, actualizado: null, fuente: "manual" },
+  ingresos: [],     // {id,nombre,monto,moneda,cotiza,frecuencia:"mensual"|"unico",mes}
+  cuentas: [],      // {id,nombre,monto,moneda,cotiza,dia,categoria}
+  subs: [],         // {id,nombre,monto,moneda,cotiza,ciclo:"mensual"|"anual",dia,mesCobro}
+  cuotas: [],       // {id,nombre,montoCuota,moneda,cotiza,cantidad,desde}
+  extras: [],       // {id,nombre,monto,moneda,cotiza,mes}
+  metas: { ahorroModo:"porcentaje", ahorroValor:20, randomModo:"porcentaje", randomValor:10 },
+  pagos: {},        // {"2026-09":{"<id>":true}}
+});
+
+let D = cargar();
+function cargar(){
+  try{
+    const crudo = localStorage.getItem(LLAVE);
+    if(!crudo) return VACIO();
+    return Object.assign(VACIO(), JSON.parse(crudo));
+  }catch(e){ return VACIO(); }
+}
+let guardadoPendiente = null;
+function guardar(){
+  clearTimeout(guardadoPendiente);
+  guardadoPendiente = setTimeout(()=>{
+    try{ localStorage.setItem(LLAVE, JSON.stringify(D)); }
+    catch(e){ alert("No se pudo guardar en este navegador (¿modo privado?). Exportá los datos para no perderlos."); }
+  }, 120);
+}
+const nuevoId = () => Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-3);
+
+/* ---------- meses ---------- */
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio",
+               "agosto","septiembre","octubre","noviembre","diciembre"];
+const hoy = new Date();
+const mesHoy = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
+let mesActivo = mesHoy;
+
+function mesPartes(k){ const [a,m] = k.split("-").map(Number); return {a, m}; }
+function mesSumar(k, n){
+  const {a,m} = mesPartes(k);
+  const t = a*12 + (m-1) + n;
+  return `${Math.floor(t/12)}-${String(t%12+1).padStart(2,"0")}`;
+}
+function mesDiff(desde, hasta){
+  const a = mesPartes(desde), b = mesPartes(hasta);
+  return (b.a*12 + b.m) - (a.a*12 + a.m);
+}
+function mesNombre(k){ const {a,m} = mesPartes(k); return `${MESES[m-1]} ${a}`; }
+function mesCorto(k){ const {a,m} = mesPartes(k); return `${MESES[m-1].slice(0,3)} ${String(a).slice(2)}`; }
+function diasDelMes(k){ const {a,m} = mesPartes(k); return new Date(a, m, 0).getDate(); }
+
+/* ---------- plata ---------- */
+const nf0 = new Intl.NumberFormat("es-AR",{maximumFractionDigits:0});
+const nf2 = new Intl.NumberFormat("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const pesos = n => "$\u00A0" + nf0.format(Math.round(n||0));
+const dolares = n => "US$\u00A0" + nf2.format(n||0);
+const plata = (n, moneda) => moneda === "USD" ? dolares(n) : pesos(n);
+const pct = n => nf2.format((n||0)*100) + " %";
+const num = v => { const n = parseFloat(String(v).replace(",",".")); return isFinite(n) ? n : 0; };
+
+/* Cotización elegida. "tarjeta" es el oficial más el recargo que
+   la app tiene configurado: los impuestos de las compras con
+   tarjeta cambian seguido, así que el porcentaje se edita a mano. */
+function cotizacion(cual){
+  const d = D.dolar;
+  if(cual === "blue") return num(d.blue) || num(d.oficial);
+  if(cual === "tarjeta") return num(d.oficial) * (1 + num(d.recargoTarjeta)/100);
+  return num(d.oficial);
+}
+function aPesos(monto, moneda, cotiza){
+  if(moneda !== "USD") return num(monto);
+  return num(monto) * cotizacion(cotiza || "tarjeta");
+}
+const hayDolar = () => num(D.dolar.oficial) > 0;
+
+/* ============================================================
+   CÁLCULO DEL MES
+   ============================================================ */
+function subsDelMes(k){
+  // Una anual solo pesa en el mes en que se cobra; el resto del
+  // año se ve como provisión aparte, no como gasto del mes.
+  return D.subs.filter(s => s.ciclo !== "anual" || Number(s.mesCobro) === mesPartes(k).m);
+}
+function cuotasDelMes(k){
+  return D.cuotas.filter(c => {
+    const n = mesDiff(c.desde, k);
+    return n >= 0 && n < Number(c.cantidad || 1);
+  });
+}
+function ingresosDelMes(k){
+  return D.ingresos.filter(i => i.frecuencia !== "unico" || i.mes === k);
+}
+function extrasDelMes(k){ return D.extras.filter(e => e.mes === k); }
+
+function pagado(k, id){ return !!(D.pagos[k] && D.pagos[k][id]); }
+function marcarPago(k, id){
+  D.pagos[k] = D.pagos[k] || {};
+  if(D.pagos[k][id]) delete D.pagos[k][id]; else D.pagos[k][id] = true;
+  guardar();
+}
+
+function resumen(k){
+  const ing = ingresosDelMes(k);
+  const entra = ing.reduce((s,i)=> s + aPesos(i.monto, i.moneda, i.cotiza||"oficial"), 0);
+
+  const filas = [];
+  D.cuentas.forEach(c => filas.push({
+    id:c.id, tipo:"cuenta", nombre:c.nombre, dia:Number(c.dia||1),
+    ars: aPesos(c.monto, c.moneda, c.cotiza), orig:c, ref:c
+  }));
+  subsDelMes(k).forEach(s => filas.push({
+    id:s.id, tipo:"sub", nombre:s.nombre, dia:Number(s.dia||1),
+    ars: aPesos(s.monto, s.moneda, s.cotiza), orig:s, ref:s
+  }));
+  cuotasDelMes(k).forEach(c => {
+    const n = mesDiff(c.desde, k) + 1;
+    filas.push({
+      id:c.id, tipo:"cuota", nombre:`${c.nombre} · cuota ${n}/${c.cantidad}`, dia:Number(c.dia||10),
+      ars: aPesos(c.montoCuota, c.moneda, c.cotiza), orig:c, ref:c
+    });
+  });
+  extrasDelMes(k).forEach(e => filas.push({
+    id:e.id, tipo:"extra", nombre:e.nombre, dia:Number(e.dia||1),
+    ars: aPesos(e.monto, e.moneda, e.cotiza), orig:e, ref:e
+  }));
+
+  const suma = t => filas.filter(f=>f.tipo===t).reduce((s,f)=>s+f.ars,0);
+  const cuentas = suma("cuenta"), subs = suma("sub"), cuotas = suma("cuota"), extras = suma("extra");
+  const sale = cuentas + subs + cuotas + extras;
+
+  const m = D.metas;
+  const ahorro = m.ahorroModo === "porcentaje" ? entra * num(m.ahorroValor)/100 : num(m.ahorroValor);
+  const random = m.randomModo === "porcentaje" ? entra * num(m.randomValor)/100 : num(m.randomValor);
+
+  const yaPague  = filas.filter(f=>  pagado(k,f.id)).reduce((s,f)=>s+f.ars,0);
+  const faltaPagar = filas.filter(f=> !pagado(k,f.id)).reduce((s,f)=>s+f.ars,0);
+
+  // Provisión de las anuales: lo que conviene reservar por mes
+  // para que en su mes no sea un golpe.
+  const anuales = D.subs.filter(s => s.ciclo === "anual");
+  const provision = anuales.reduce((s,x)=> s + aPesos(x.monto, x.moneda, x.cotiza)/12, 0);
+
+  const usdMes = subsDelMes(k).filter(s=>s.moneda==="USD").reduce((s,x)=>s+num(x.monto),0)
+               + D.cuentas.filter(c=>c.moneda==="USD").reduce((s,x)=>s+num(x.monto),0)
+               + cuotasDelMes(k).filter(c=>c.moneda==="USD").reduce((s,x)=>s+num(x.montoCuota),0);
+
+  return { k, filas, entra, sale, cuentas, subs, cuotas, extras, ahorro, random,
+           libre: entra - sale, disponible: entra - sale - ahorro - random,
+           yaPague, faltaPagar, provision, usdMes, ing };
+}
+
+/* ============================================================
+   MATEMÁTICA DE UNA COMPRA EN CUOTAS
+
+   La pregunta no es "cuánto pago en total" sino "cuánto vale
+   hoy lo que voy a pagar". Con inflación o con la plata rindiendo
+   en algún lado, pagar más tarde vale menos, y por eso unas
+   cuotas con recargo pueden salir más baratas que el contado.
+   ============================================================ */
+
+/* Valor presente de n cuotas iguales, descontadas a la tasa d por mes.
+   offset 1 = la primera cuota cae el mes que viene. */
+function valorPresente(cuota, n, d, offset){
+  let vp = 0;
+  for(let k = 0; k < n; k++) vp += cuota / Math.pow(1 + d, k + offset);
+  return vp;
+}
+
+/* Tasa mensual implícita del financiamiento: la d que hace que el
+   valor presente de las cuotas sea igual al precio de contado.
+   Se busca por bisección, que no falla ni con tasas absurdas. */
+function tasaImplicita(contado, cuota, n, offset){
+  const f = d => valorPresente(cuota, n, d, offset) - contado;
+  if(f(0) <= 0) return 0;              // cuotas sin interés o con descuento
+  let lo = 0, hi = 5;                   // 500 % mensual, techo de sobra
+  if(f(hi) > 0) return null;            // ni con eso: datos raros
+  for(let i = 0; i < 200; i++){
+    const mid = (lo + hi) / 2;
+    if(f(mid) > 0) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function analizarCompra(e){
+  const contado = Math.max(0, num(e.contado));
+  const n = Math.max(1, Math.round(num(e.n)));
+  const cuota = Math.max(0, num(e.cuota));
+  const total = cuota * n;
+  const infl = num(e.infl)/100;
+  const rend = num(e.rend)/100;
+  const offset = e.offset;             // 0 = primera cuota ya este mes
+
+  // La tasa con la que comparo: si tengo la plata, el costo de
+  // financiarme es lo que dejo de ganar teniéndola invertida; si no
+  // la tengo, lo que corre es la inflación. Tomo la más alta, que es
+  // la que de verdad compite con la compra.
+  const d = Math.max(infl, rend);
+
+  const vp = valorPresente(cuota, n, d, offset);
+  const tasa = tasaImplicita(contado, cuota, n, offset);
+  const recargo = contado > 0 ? total/contado - 1 : 0;
+  const diferencia = contado - vp;      // > 0: las cuotas salen más baratas hoy
+
+  return {
+    contado, n, cuota, total, vp, tasa, recargo, diferencia, d, infl, rend, offset,
+    tna: tasa === null ? null : tasa*12,
+    tea: tasa === null ? null : Math.pow(1+tasa,12)-1,
+    convieneCuotas: diferencia > 0,
+  };
+}
+
+/* ============================================================
+   VISTAS
+   ============================================================ */
+const SECCIONES = [
+  ["resumen","Resumen"],
+  ["ingresos","Ingresos"],
+  ["cuentas","Cuentas"],
+  ["subs","Suscripciones"],
+  ["cuotas","Cuotas"],
+  ["metas","Ahorro y gastos random"],
+  ["dolar","Dólar"],
+  ["compra","¿Compro o no?"],
+];
+let seccion = "resumen";
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => (
+  {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+
+const $ = s => document.querySelector(s);
+
+function pintar(){
+  $("#mes-label").textContent = mesNombre(mesActivo);
+  $("#tabs").innerHTML = SECCIONES.map(([id,t]) =>
+    `<button data-tab="${id}" ${id===seccion?'aria-current="page"':""}>${t}</button>`).join("");
+  const r = resumen(mesActivo);
+  const v = $("#vista");
+  v.innerHTML = ({
+    resumen: vistaResumen, ingresos: vistaIngresos, cuentas: vistaCuentas,
+    subs: vistaSubs, cuotas: vistaCuotas, metas: vistaMetas,
+    dolar: vistaDolar, compra: vistaCompra,
+  })[seccion](r);
+}
+
+/* Redibuja sin que se pierda el cursor: quien está escribiendo un
+   número sigue escribiéndolo, aunque el resto de la pantalla se
+   haya actualizado debajo. */
+function pintarConFoco(){
+  const act = document.activeElement;
+  const llaves = ["meta","dolar","c"];
+  const cual = act ? llaves.find(k => act.dataset && act.dataset[k]) : null;
+  const marca = cual ? { cual, val: act.dataset[cual] } : null;
+  pintar();
+  if(marca){
+    const el = document.querySelector(`[data-${marca.cual}="${marca.val}"]`);
+    if(el){
+      el.focus();
+      const n = el.value.length;
+      try{ el.setSelectionRange(n, n); }catch(e){ /* los number no lo permiten */ }
+    }
+  }
+}
+let redibujoPendiente = null;
+function pintarPronto(){
+  clearTimeout(redibujoPendiente);
+  redibujoPendiente = setTimeout(pintarConFoco, 350);
+}
+
+/* ---------- avisos comunes ---------- */
+function avisoDolar(){
+  if(hayDolar()) return "";
+  return `<div class="aviso-linea">Todavía no cargaste la cotización del dólar, así que lo que está
+    en dólares se cuenta como cero. Andá a <b>Dólar</b> y ponela.</div>`;
+}
+
+/* ---------- RESUMEN ---------- */
+function vistaResumen(r){
+  const pend = r.filas.filter(f=>!pagado(r.k,f.id)).sort((a,b)=>a.dia-b.dia);
+  const diaHoy = mesActivo === mesHoy ? hoy.getDate() : 0;
+  const total = Math.max(r.entra, r.sale + r.ahorro + r.random, 1);
+  const seg = [
+    ["Cuentas", r.cuentas, "#4b39d8"],
+    ["Suscripciones", r.subs, "#0f766e"],
+    ["Cuotas", r.cuotas, "#b45309"],
+    ["Gastos del mes", r.extras, "#be123c"],
+    ["Ahorro", r.ahorro, "#15803d"],
+    ["Random", r.random, "#a855f7"],
+  ].filter(s => s[1] > 0);
+  const libreVisual = Math.max(0, r.entra - r.sale - r.ahorro - r.random);
+
+  return `
+  ${avisoDolar()}
+  <section class="card">
+    <header><h1>${mesNombre(r.k)}</h1>
+      <span class="hint">${r.ing.length ? "" : "Cargá primero tus ingresos"}</span></header>
+    <div class="cifras">
+      <div class="cifra grande"><span class="k">Entra</span><span class="v num">${pesos(r.entra)}</span>
+        <span class="d">${r.ing.length} ${r.ing.length===1?"ingreso":"ingresos"}</span></div>
+      <div class="cifra grande"><span class="k">Se va</span><span class="v num">${pesos(r.sale)}</span>
+        <span class="d">${r.entra>0?nf0.format(Math.round(r.sale/r.entra*100)):0} % de lo que entra</span></div>
+      <div class="cifra grande ${r.disponible < 0 ? "mal" : r.disponible < r.entra*0.05 ? "aviso" : "ok"}">
+        <span class="k">Te queda libre</span><span class="v num">${pesos(r.disponible)}</span>
+        <span class="d">después de ahorro y gastos random</span></div>
+    </div>
+    <div class="barra">
+      ${seg.map(s=>`<div style="width:${s[1]/total*100}%;background:${s[2]}" title="${s[0]}"></div>`).join("")}
+      ${libreVisual>0?`<div style="width:${libreVisual/total*100}%;background:#d5cdbc" title="Libre"></div>`:""}
+    </div>
+    <div class="leyenda">
+      ${seg.map(s=>`<span><i class="punto" style="background:${s[2]}"></i>${s[0]} ${pesos(s[1])}</span>`).join("")}
+      ${libreVisual>0?`<span><i class="punto" style="background:#d5cdbc"></i>Libre ${pesos(libreVisual)}</span>`:""}
+    </div>
+    ${r.disponible < 0 ? `<div class="aviso-linea malo">Este mes no cierra: te faltan
+      <b>${pesos(-r.disponible)}</b>. Bajá el ahorro, corré un gasto al mes que viene, o revisá
+      las suscripciones.</div>` : ""}
+  </section>
+
+  <section class="card">
+    <header><h2>Reservas del mes</h2></header>
+    <div class="cifras">
+      <div class="cifra"><span class="k">Ahorro</span><span class="v num">${pesos(r.ahorro)}</span>
+        <span class="d">${D.metas.ahorroModo==="porcentaje" ? num(D.metas.ahorroValor)+" % de lo que entra" : "monto fijo"}</span></div>
+      <div class="cifra"><span class="k">Gastos random</span><span class="v num">${pesos(r.random)}</span>
+        <span class="d">salidas, antojos, lo imprevisto</span></div>
+      <div class="cifra"><span class="k">Para las anuales</span><span class="v num">${pesos(r.provision)}</span>
+        <span class="d">provisión mensual de lo que se paga una vez al año</span></div>
+      <div class="cifra"><span class="k">Por día</span><span class="v num">${pesos(Math.max(0,r.random)/diasDelMes(r.k))}</span>
+        <span class="d">lo random repartido en el mes</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header><h2>Pagos</h2><span class="hint">${pesos(r.yaPague)} pagado · ${pesos(r.faltaPagar)} por pagar</span></header>
+    ${r.filas.length === 0 ? `<div class="vacio">Sin cuentas ni suscripciones cargadas todavía.</div>` :
+      `<div class="lista">${r.filas.slice().sort((a,b)=>a.dia-b.dia).map(f=>{
+        const pg = pagado(r.k, f.id);
+        const cerca = !pg && diaHoy && f.dia - diaHoy <= 3;
+        const vencido = !pg && diaHoy && f.dia < diaHoy;
+        return `<div class="item ${pg?"pagado":""}">
+          <button class="icono ${pg?"marcado":""}" data-pago="${f.id}"
+            title="${pg?"Marcar como no pagado":"Marcar como pagado"}">${pg?"✓":""}</button>
+          <div class="cuerpo">
+            <div class="nom">${esc(f.nombre)}</div>
+            <div class="meta">día ${f.dia} · ${({cuenta:"cuenta",sub:"suscripción",cuota:"cuota",extra:"gasto del mes"})[f.tipo]}
+              ${(f.ref.moneda==="USD")?` · ${dolares(num(f.ref.monto||f.ref.montoCuota))}`:""}</div>
+          </div>
+          ${vencido?`<span class="chip venc">vencida</span>`:cerca?`<span class="chip pronto">en ${f.dia-diaHoy} d</span>`:pg?`<span class="chip listo">pagado</span>`:""}
+          <div class="plata num">${pesos(f.ars)}</div>
+        </div>`;
+      }).join("")}</div>`}
+    ${(() => {
+      if(!pend.length || !diaHoy) return "";
+      const proxima = pend.find(f => f.dia >= diaHoy);
+      const vencidas = pend.filter(f => f.dia < diaHoy);
+      if(proxima) return `<p class="sub">Lo próximo que vence: <b>${esc(proxima.nombre)}</b>,
+        el ${proxima.dia}.${vencidas.length ? ` Y hay ${vencidas.length} con la fecha pasada.` : ""}</p>`;
+      return `<p class="sub">No queda nada por vencer este mes: las ${vencidas.length} que faltan
+        marcar ya pasaron su fecha.</p>`;
+    })()}
+  </section>
+
+  <section class="card">
+    <header><h2>Gastos sueltos de ${mesNombre(r.k)}</h2>
+      <span class="hint">lo que pasa una vez y no se repite</span></header>
+    ${extrasDelMes(r.k).length === 0 ? `<div class="vacio">Nada suelto cargado en este mes.</div>` :
+      `<div class="lista">${extrasDelMes(r.k).map(e=>filaEditable(e, "extras",
+        plata(num(e.monto), e.moneda), `día ${e.dia||1}`)).join("")}</div>`}
+    ${forma("extras", "Sumar un gasto suelto")}
+  </section>`;
+}
+
+/* ---------- formularios genéricos ----------
+   Cada lista declara sus campos una sola vez y de ahí salen el
+   formulario para agregar y el de editar, que son el mismo. */
+const OPS_MONEDA = [["ARS","pesos"],["USD","dólares"]];
+const OPS_COTIZA = [["tarjeta","dólar tarjeta"],["oficial","dólar oficial"],["blue","dólar libre"]];
+const OPS_MES = MESES.map((m,i)=>[String(i+1), m]);
+
+const CAMPOS = {
+  ingresos:[
+    {k:"nombre", e:"De qué", t:"text", ancho:true, ph:"Sueldo, alquiler que cobro, freelance"},
+    {k:"monto", e:"Cuánto", t:"number"},
+    {k:"moneda", e:"Moneda", t:"select", ops:OPS_MONEDA, def:"ARS"},
+    {k:"cotiza", e:"Se convierte a", t:"select", ops:OPS_COTIZA, def:"oficial", soloUSD:true},
+    {k:"frecuencia", e:"Cada cuánto", t:"select", ops:[["mensual","todos los meses"],["unico","solo este mes"]], def:"mensual"},
+  ],
+  cuentas:[
+    {k:"nombre", e:"Qué cuenta", t:"text", ancho:true, ph:"Alquiler, luz, internet, expensas"},
+    {k:"monto", e:"Cuánto", t:"number"},
+    {k:"moneda", e:"Moneda", t:"select", ops:OPS_MONEDA, def:"ARS"},
+    {k:"cotiza", e:"Se convierte a", t:"select", ops:OPS_COTIZA, def:"oficial", soloUSD:true},
+    {k:"dia", e:"Día que vence", t:"number", def:"10"},
+    {k:"categoria", e:"Rubro", t:"select", def:"casa",
+     ops:[["casa","casa"],["servicios","servicios"],["transporte","transporte"],
+          ["salud","salud"],["deudas","deudas"],["otros","otros"]]},
+  ],
+  subs:[
+    {k:"nombre", e:"Suscripción", t:"text", ancho:true, ph:"Spotify, Netflix, iCloud, ChatGPT"},
+    {k:"monto", e:"Cuánto", t:"number"},
+    {k:"moneda", e:"Moneda", t:"select", ops:OPS_MONEDA, def:"USD"},
+    {k:"cotiza", e:"Se convierte a", t:"select", ops:OPS_COTIZA, def:"tarjeta", soloUSD:true},
+    {k:"ciclo", e:"Cada cuánto", t:"select", ops:[["mensual","por mes"],["anual","por año"]], def:"mensual"},
+    {k:"mesCobro", e:"Mes del cobro", t:"select", ops:OPS_MES, def:String(hoy.getMonth()+1), soloAnual:true},
+    {k:"dia", e:"Día del cobro", t:"number", def:"1"},
+  ],
+  cuotas:[
+    {k:"nombre", e:"Qué compraste", t:"text", ancho:true, ph:"Celular, heladera, pasajes"},
+    {k:"montoCuota", e:"Cuánto la cuota", t:"number"},
+    {k:"moneda", e:"Moneda", t:"select", ops:OPS_MONEDA, def:"ARS"},
+    {k:"cotiza", e:"Se convierte a", t:"select", ops:OPS_COTIZA, def:"tarjeta", soloUSD:true},
+    {k:"cantidad", e:"Cuántas cuotas", t:"number", def:"12"},
+    {k:"desde", e:"Primera cuota", t:"mes"},
+    {k:"dia", e:"Día del cobro", t:"number", def:"10"},
+  ],
+  extras:[
+    {k:"nombre", e:"Qué fue", t:"text", ancho:true, ph:"Regalo, remedio, arreglo del auto"},
+    {k:"monto", e:"Cuánto", t:"number"},
+    {k:"moneda", e:"Moneda", t:"select", ops:OPS_MONEDA, def:"ARS"},
+    {k:"cotiza", e:"Se convierte a", t:"select", ops:OPS_COTIZA, def:"blue", soloUSD:true},
+    {k:"dia", e:"Día", t:"number", def:String(Math.min(hoy.getDate(), 28))},
+  ],
+};
+
+function campoHTML(c, obj){
+  const val = obj && obj[c.k] != null ? obj[c.k] : (c.def ?? "");
+  const cls = "campo" + (c.ancho ? " ancho" : "");
+  let control;
+  if(c.t === "select"){
+    control = `<select data-k="${c.k}">${c.ops.map(([v,t]) =>
+      `<option value="${v}" ${String(val)===String(v)?"selected":""}>${t}</option>`).join("")}</select>`;
+  }else if(c.t === "mes"){
+    const v = val || mesActivo;
+    control = `<input type="month" data-k="${c.k}" value="${esc(v)}" />`;
+  }else{
+    control = `<input type="${c.t}" data-k="${c.k}" value="${esc(val)}"
+      ${c.t==="number"?'inputmode="decimal" step="any"':""} placeholder="${esc(c.ph||"")}" />`;
+  }
+  return `<label class="${cls}" data-solo-usd="${!!c.soloUSD}" data-solo-anual="${!!c.soloAnual}">
+    <span>${c.e}</span>${control}</label>`;
+}
+
+function camposHTML(lista, obj){
+  return `<div class="campos">${CAMPOS[lista].map(c=>campoHTML(c,obj)).join("")}</div>`;
+}
+
+function forma(lista, titulo){
+  return `<details class="forma" data-forma="${lista}">
+    <summary>+ ${titulo}</summary>
+    <div class="adentro">
+      ${camposHTML(lista, null)}
+      <div class="acciones"><button class="btn" data-agregar="${lista}">Agregar</button></div>
+    </div></details>`;
+}
+
+let editando = null;
+function filaEditable(o, lista, montoTxt, metaTxt, chips){
+  if(editando === o.id){
+    return `<div class="item" style="display:block" data-editar-fila="${o.id}">
+      ${camposHTML(lista, o)}
+      <div class="acciones" style="margin-top:10px">
+        <button class="btn" data-guardar="${lista}" data-id="${o.id}">Guardar</button>
+        <button class="btn sec" data-cancelar="1">Cancelar</button>
+      </div></div>`;
+  }
+  return `<div class="item">
+    <div class="cuerpo">
+      <div class="nom">${esc(o.nombre)} ${chips||""}</div>
+      <div class="meta">${metaTxt}</div>
+    </div>
+    <div class="plata num">${montoTxt}</div>
+    <button class="icono" data-editar="${o.id}" title="Editar">✎</button>
+    <button class="icono" data-borrar="${lista}" data-id="${o.id}" title="Borrar">✕</button>
+  </div>`;
+}
+
+function leerCampos(cont, lista){
+  const o = {};
+  cont.querySelectorAll("[data-k]").forEach(el => { o[el.dataset.k] = el.value; });
+  return o;
+}
+
+/* ---------- INGRESOS ---------- */
+function vistaIngresos(r){
+  return `${avisoDolar()}
+  <section class="card">
+    <header><h1>Ingresos</h1><span class="hint">${pesos(r.entra)} en ${mesNombre(r.k)}</span></header>
+    <p class="sub">Todo lo que entra. Lo que marques como “solo este mes” aparece nada más
+      en ${mesNombre(r.k)}: un aguinaldo, la venta de algo, un trabajo suelto.</p>
+    ${D.ingresos.length === 0 ? `<div class="vacio">Sin ingresos cargados. Empezá por acá: el resto
+      de la app se apoya en este número.</div>` :
+      `<div class="lista">${D.ingresos.map(i=>filaEditable(i,"ingresos",
+        `${plata(num(i.monto), i.moneda)}${i.moneda==="USD"?`<small>${pesos(aPesos(i.monto,"USD",i.cotiza))}</small>`:""}`,
+        i.frecuencia==="unico" ? `solo ${mesCorto(i.mes||mesActivo)}` : "todos los meses",
+        i.moneda==="USD"?`<span class="chip usd">USD</span>`:""
+      )).join("")}</div>`}
+    ${forma("ingresos","Sumar un ingreso")}
+  </section>`;
+}
+
+/* ---------- CUENTAS ---------- */
+function vistaCuentas(r){
+  const porRubro = {};
+  D.cuentas.forEach(c => {
+    const k = c.categoria || "otros";
+    porRubro[k] = (porRubro[k]||0) + aPesos(c.monto, c.moneda, c.cotiza);
+  });
+  return `${avisoDolar()}
+  <section class="card">
+    <header><h1>Cuentas que pagás todos los meses</h1>
+      <span class="hint">${pesos(r.cuentas)} por mes</span></header>
+    <p class="sub">Los fijos: alquiler, expensas, servicios, el gimnasio, la cuota del colegio.
+      Lo que sí o sí sale, con o sin ganas.</p>
+    ${D.cuentas.length === 0 ? `<div class="vacio">Todavía no cargaste ninguna.</div>` :
+      `<div class="lista">${D.cuentas.slice().sort((a,b)=>Number(a.dia)-Number(b.dia)).map(c=>filaEditable(c,"cuentas",
+        `${plata(num(c.monto), c.moneda)}${c.moneda==="USD"?`<small>${pesos(aPesos(c.monto,"USD",c.cotiza))}</small>`:""}`,
+        `vence el ${c.dia||1} · ${c.categoria||"otros"}`,
+        c.moneda==="USD"?`<span class="chip usd">USD</span>`:""
+      )).join("")}</div>`}
+    ${forma("cuentas","Sumar una cuenta")}
+    ${Object.keys(porRubro).length > 1 ? `
+      <h3>Por rubro</h3>
+      <table class="tabla"><tbody>
+      ${Object.entries(porRubro).sort((a,b)=>b[1]-a[1]).map(([k,v])=>
+        `<tr><td>${k}</td><td class="num">${pesos(v)}</td>
+         <td class="num">${r.cuentas?nf0.format(Math.round(v/r.cuentas*100)):0} %</td></tr>`).join("")}
+      </tbody></table>` : ""}
+  </section>`;
+}
+
+/* ---------- SUSCRIPCIONES ---------- */
+function vistaSubs(r){
+  const mensualizado = D.subs.reduce((s,x)=> s + aPesos(x.monto,x.moneda,x.cotiza)/(x.ciclo==="anual"?12:1), 0);
+  const usd = D.subs.filter(s=>s.moneda==="USD");
+  const usdMes = usd.reduce((s,x)=> s + num(x.monto)/(x.ciclo==="anual"?12:1), 0);
+  return `${avisoDolar()}
+  <section class="card">
+    <header><h1>Suscripciones</h1><span class="hint">${pesos(r.subs)} en ${mesCorto(r.k)}</span></header>
+    <div class="cifras">
+      <div class="cifra"><span class="k">Costo parejo</span><span class="v num">${pesos(mensualizado)}</span>
+        <span class="d">por mes, repartiendo las anuales</span></div>
+      <div class="cifra"><span class="k">En un año</span><span class="v num">${pesos(mensualizado*12)}</span>
+        <span class="d">lo que te salen las ${D.subs.length} juntas</span></div>
+      <div class="cifra"><span class="k">En dólares</span><span class="v num">${dolares(usdMes)}</span>
+        <span class="d">por mes, ${usd.length} de ${D.subs.length}</span></div>
+    </div>
+    ${D.subs.length === 0 ? `<div class="vacio">Sin suscripciones. Mirá el resumen de la tarjeta:
+      siempre aparece alguna que ya no usás.</div>` :
+      `<div class="lista">${D.subs.slice()
+        .sort((a,b)=> aPesos(b.monto,b.moneda,b.cotiza)/(b.ciclo==="anual"?12:1)
+                    - aPesos(a.monto,a.moneda,a.cotiza)/(a.ciclo==="anual"?12:1))
+        .map(s=>filaEditable(s,"subs",
+          `${plata(num(s.monto), s.moneda)}${s.moneda==="USD"?`<small>${pesos(aPesos(s.monto,"USD",s.cotiza))}</small>`:""}`,
+          `${s.ciclo==="anual" ? `una vez al año, en ${MESES[Number(s.mesCobro||1)-1]}` : "por mes"} · día ${s.dia||1}${
+            s.moneda==="USD" ? ` · al ${(s.cotiza||"tarjeta")}` : ""}`,
+          `${s.moneda==="USD"?`<span class="chip usd">USD</span>`:""}${s.ciclo==="anual"?`<span class="chip">anual</span>`:""}`
+        )).join("")}</div>`}
+    ${forma("subs","Sumar una suscripción")}
+    ${mensualizado>0 && r.entra>0 ? `<div class="aviso-linea ${mensualizado/r.entra>0.12?"malo":"bueno"}">
+      Las suscripciones se llevan <b>${nf2.format(mensualizado/r.entra*100)} %</b> de lo que entra.
+      ${mensualizado/r.entra>0.12 ? "Es bastante: mirá las tres de arriba, que son las que pesan."
+        : "Está en un rango sano."}</div>`:""}
+  </section>`;
+}
+
+/* ---------- CUOTAS ---------- */
+function vistaCuotas(r){
+  const vigentes = D.cuotas.filter(c => mesDiff(c.desde, mesActivo) < Number(c.cantidad||1));
+  const deudaTotal = vigentes.reduce((s,c)=>{
+    const pagadas = Math.max(0, mesDiff(c.desde, mesActivo));
+    const faltan = Math.max(0, Number(c.cantidad||1) - pagadas);
+    return s + faltan * aPesos(c.montoCuota, c.moneda, c.cotiza);
+  }, 0);
+  // Cuándo se libera cada peso: próximos doce meses.
+  const proyeccion = Array.from({length:12}, (_,i) => {
+    const k = mesSumar(mesActivo, i);
+    return { k, monto: cuotasDelMes(k).reduce((s,c)=>s+aPesos(c.montoCuota,c.moneda,c.cotiza),0) };
+  });
+  const tope = Math.max(...proyeccion.map(p=>p.monto), 1);
+
+  return `${avisoDolar()}
+  <section class="card">
+    <header><h1>Cuotas</h1><span class="hint">${pesos(r.cuotas)} en ${mesCorto(r.k)}</span></header>
+    <p class="sub">Lo que ya está comprometido de acá en adelante. Antes de sumar una cuota más,
+      mirá cuánto de los meses que vienen ya está vendido.</p>
+    <div class="cifras">
+      <div class="cifra"><span class="k">Este mes</span><span class="v num">${pesos(r.cuotas)}</span>
+        <span class="d">${cuotasDelMes(r.k).length} ${cuotasDelMes(r.k).length===1?"cuota":"cuotas"}</span></div>
+      <div class="cifra ${r.entra && r.cuotas/r.entra>0.3 ? "mal" : ""}">
+        <span class="k">De lo que entra</span>
+        <span class="v num">${r.entra?nf0.format(Math.round(r.cuotas/r.entra*100)):0} %</span>
+        <span class="d">sano por debajo de 30 %</span></div>
+      <div class="cifra"><span class="k">Falta pagar</span><span class="v num">${pesos(deudaTotal)}</span>
+        <span class="d">en valores de hoy, todo lo que resta</span></div>
+    </div>
+    ${D.cuotas.length === 0 ? `<div class="vacio">Sin cuotas cargadas. Las que salgan de la
+      calculadora se pueden sumar acá con un botón.</div>` :
+      `<div class="lista">${D.cuotas.map(c=>{
+        const n = mesDiff(c.desde, mesActivo) + 1;
+        const total = Number(c.cantidad||1);
+        const estado = n < 1 ? `arranca en ${mesCorto(c.desde)}`
+                     : n > total ? "terminada"
+                     : `va la ${n} de ${total} · termina en ${mesCorto(mesSumar(c.desde, total-1))}`;
+        return filaEditable(c,"cuotas",
+          `${plata(num(c.montoCuota), c.moneda)}${c.moneda==="USD"?`<small>${pesos(aPesos(c.montoCuota,"USD",c.cotiza))}</small>`:""}`,
+          estado,
+          n > total ? `<span class="chip listo">terminada</span>` : c.moneda==="USD"?`<span class="chip usd">USD</span>`:"");
+      }).join("")}</div>`}
+    ${forma("cuotas","Sumar una compra en cuotas")}
+  </section>
+
+  <section class="card">
+    <header><h2>Cómo se descarga</h2><span class="hint">próximos doce meses</span></header>
+    <table class="tabla"><tbody>
+      ${proyeccion.map(p=>`<tr>
+        <td>${mesCorto(p.k)}</td>
+        <td style="width:55%">
+          <div class="barra" style="height:10px"><div style="width:${p.monto/tope*100}%;background:#b45309"></div></div>
+        </td>
+        <td class="num">${p.monto?pesos(p.monto):"—"}</td></tr>`).join("")}
+    </tbody></table>
+  </section>`;
+}
+
+/* ---------- AHORRO Y RANDOM ---------- */
+function vistaMetas(r){
+  const m = D.metas;
+  return `
+  <section class="card">
+    <header><h1>Ahorro y gastos random</h1></header>
+    <p class="sub">Dos reservas que salen antes de que la plata se evapore sola: la que guardás
+      y la que te dejás para gastar sin culpa.</p>
+    <div class="campos">
+      <label class="campo"><span>Ahorro</span>
+        <select data-meta="ahorroModo">
+          <option value="porcentaje" ${m.ahorroModo==="porcentaje"?"selected":""}>un % de lo que entra</option>
+          <option value="monto" ${m.ahorroModo==="monto"?"selected":""}>un monto fijo</option>
+        </select></label>
+      <label class="campo"><span>${m.ahorroModo==="porcentaje"?"Qué porcentaje":"Cuántos pesos"}</span>
+        <input type="number" inputmode="decimal" step="any" data-meta="ahorroValor" value="${esc(m.ahorroValor)}" /></label>
+      <label class="campo"><span>Gastos random</span>
+        <select data-meta="randomModo">
+          <option value="porcentaje" ${m.randomModo==="porcentaje"?"selected":""}>un % de lo que entra</option>
+          <option value="monto" ${m.randomModo==="monto"?"selected":""}>un monto fijo</option>
+        </select></label>
+      <label class="campo"><span>${m.randomModo==="porcentaje"?"Qué porcentaje":"Cuántos pesos"}</span>
+        <input type="number" inputmode="decimal" step="any" data-meta="randomValor" value="${esc(m.randomValor)}" /></label>
+    </div>
+    <div class="cifras">
+      <div class="cifra ok"><span class="k">Ahorro del mes</span><span class="v num">${pesos(r.ahorro)}</span>
+        <span class="d">${hayDolar() ? dolares(r.ahorro/Math.max(cotizacion("blue"),1)) + " al dólar libre" : "cargá el dólar para verlo en USD"}</span></div>
+      <div class="cifra"><span class="k">Random del mes</span><span class="v num">${pesos(r.random)}</span>
+        <span class="d">${pesos(r.random/diasDelMes(r.k))} por día</span></div>
+      <div class="cifra"><span class="k">En un año</span><span class="v num">${pesos(r.ahorro*12)}</span>
+        <span class="d">si sostenés este ritmo</span></div>
+      <div class="cifra ${r.disponible<0?"mal":"ok"}"><span class="k">Sobra o falta</span>
+        <span class="v num">${pesos(r.disponible)}</span>
+        <span class="d">después de todo lo anterior</span></div>
+    </div>
+    ${r.disponible < 0 ? `<div class="aviso-linea malo">Con estas dos reservas el mes no cierra por
+      <b>${pesos(-r.disponible)}</b>. El ahorro que entra es
+      <b>${pesos(Math.max(0, r.ahorro + r.disponible))}</b>: ${r.entra ? nf2.format(Math.max(0,(r.ahorro+r.disponible))/r.entra*100) : 0} % de lo que entra.</div>`
+    : `<div class="aviso-linea bueno">Cierra. Y todavía te sobran <b>${pesos(r.disponible)}</b> arriba
+      del ahorro y de lo random.</div>`}
+    <h3>Cuánto aguantás sin ingresos</h3>
+    <p class="sub">Con los fijos de este mes (${pesos(r.sale)}), cada mes de colchón que quieras
+      tener cuesta esa plata. Tres meses son <b>${pesos(r.sale*3)}</b> y seis, <b>${pesos(r.sale*6)}</b>.
+      A este ritmo de ahorro llegás a tres meses en
+      <b>${r.ahorro>0 ? Math.ceil(r.sale*3/r.ahorro) : "—"}</b> meses.</p>
+  </section>`;
+}
+
+/* ---------- DÓLAR ---------- */
+let trayendo = false;
+function vistaDolar(r){
+  const d = D.dolar;
+  const tarjeta = cotizacion("tarjeta");
+  const usdMes = r.usdMes;
+  const gastoUSDpesos = usdMes * tarjeta;
+  const escenarios = [0, 10, 25, 50].map(p => ({
+    p, valor: tarjeta*(1+p/100), mes: usdMes*tarjeta*(1+p/100),
+  }));
+  return `
+  <section class="card">
+    <header><h1>Dólar</h1>
+      <span class="hint">${d.actualizado ? "actualizado " + esc(d.actualizado) : "a mano"}</span></header>
+    <p class="sub">Las suscripciones se pagan en dólares pero la plata entra en pesos: el número que
+      manda es a qué cotización te las cobran. El <b>dólar tarjeta</b> es el oficial más los impuestos
+      del momento, que cambian seguido; por eso el recargo se edita acá y no viene fijo.</p>
+    <div class="campos">
+      <label class="campo"><span>Dólar oficial</span>
+        <input type="number" inputmode="decimal" step="any" data-dolar="oficial" value="${esc(d.oficial)}" /></label>
+      <label class="campo"><span>Dólar libre</span>
+        <input type="number" inputmode="decimal" step="any" data-dolar="blue" value="${esc(d.blue)}" /></label>
+      <label class="campo"><span>Recargo de tarjeta (%)</span>
+        <input type="number" inputmode="decimal" step="any" data-dolar="recargoTarjeta" value="${esc(d.recargoTarjeta)}" /></label>
+    </div>
+    <div class="acciones">
+      <button class="btn sec" id="traer-dolar" ${trayendo?"disabled":""}>
+        ${trayendo ? "Buscando…" : "Traer cotizaciones de internet"}</button>
+    </div>
+    <p class="ayuda" id="estado-dolar">Las trae de dolarapi.com. Si no hay internet o el sitio no
+      responde, los valores de arriba se cargan a mano y la app funciona igual.</p>
+    <table class="tabla">
+      <thead><tr><th>Cotización</th><th>Valor</th><th>Tu gasto en USD</th></tr></thead>
+      <tbody>
+        <tr><td>Oficial</td><td class="num">${pesos(cotizacion("oficial"))}</td>
+            <td class="num">${pesos(usdMes*cotizacion("oficial"))}</td></tr>
+        <tr><td>Tarjeta (+${nf0.format(num(d.recargoTarjeta))} %)</td><td class="num">${pesos(tarjeta)}</td>
+            <td class="num">${pesos(usdMes*tarjeta)}</td></tr>
+        <tr><td>Libre</td><td class="num">${pesos(cotizacion("blue"))}</td>
+            <td class="num">${pesos(usdMes*cotizacion("blue"))}</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <header><h2>Lo que pagás en dólares</h2><span class="hint">${mesNombre(r.k)}</span></header>
+    <div class="cifras">
+      <div class="cifra grande"><span class="k">Por mes</span><span class="v num">${dolares(usdMes)}</span>
+        <span class="d">${pesos(gastoUSDpesos)} al dólar tarjeta</span></div>
+      <div class="cifra"><span class="k">Por año</span><span class="v num">${dolares(usdMes*12)}</span>
+        <span class="d">${pesos(gastoUSDpesos*12)} de hoy</span></div>
+      <div class="cifra ${r.entra && gastoUSDpesos/r.entra>0.15 ? "aviso":""}">
+        <span class="k">De lo que entra</span>
+        <span class="v num">${r.entra?nf2.format(gastoUSDpesos/r.entra*100):0} %</span>
+        <span class="d">atado al dólar</span></div>
+    </div>
+    ${usdMes > 0 ? `
+      <h3>Si el dólar se mueve</h3>
+      <table class="tabla">
+        <thead><tr><th>Sube</th><th>Dólar tarjeta</th><th>Te sale por mes</th><th>Diferencia</th></tr></thead>
+        <tbody>${escenarios.map(s=>`<tr>
+          <td>${s.p===0?"hoy":"+"+s.p+"\u00A0%"}</td>
+          <td class="num">${pesos(s.valor)}</td>
+          <td class="num">${pesos(s.mes)}</td>
+          <td class="num">${s.p===0?"—":"+"+pesos(s.mes-gastoUSDpesos)}</td></tr>`).join("")}
+        </tbody></table>
+      <p class="sub">Un salto del 25 % en el dólar te mueve el presupuesto
+        <b>${pesos(usdMes*tarjeta*0.25)}</b> por mes. Si eso te rompe el mes, conviene comprar los
+        dólares de las suscripciones cuando podés y no cuando te las cobran.</p>`
+    : `<div class="vacio">No tenés nada cargado en dólares todavía.</div>`}
+  </section>`;
+}
+
+/* Meses de ahorro para juntar un objetivo, con la plata rindiendo
+   a la tasa d mientras se junta. Sin ahorro no hay cuenta posible. */
+function mesesParaJuntar(objetivo, ahorroMensual, d){
+  if(!(ahorroMensual > 0)) return "—";
+  if(!(d > 0)) return Math.ceil(objetivo / ahorroMensual);
+  return Math.ceil(Math.log(1 + objetivo*d/ahorroMensual) / Math.log(1 + d));
+}
+
+/* ---------- ¿COMPRO O NO? ---------- */
+const CALC_VACIA = { contado:"", n:"6", cuota:"", infl:"2", rend:"2.5", offset:1, nombre:"" };
+let calc = Object.assign({}, CALC_VACIA, D.calc || {});
+
+function vistaCompra(r){
+  const a = analizarCompra(calc);
+  return `
+  <section class="card">
+    <header><h1>¿Me conviene esta compra?</h1></header>
+    <p class="sub">Poné el precio de contado y el de las cuotas. La cuenta no es cuánto pagás en
+      total, sino cuánto vale hoy todo lo que vas a pagar: con inflación, o con la plata rindiendo
+      en otro lado, una cuota de dentro de un año pesa mucho menos que una de este mes.</p>
+    <div class="campos" id="campos-compra">
+      <label class="campo ancho"><span>Qué querés comprar</span>
+        <input type="text" data-c="nombre" value="${esc(calc.nombre)}" placeholder="Celular, notebook, pasajes" /></label>
+      <label class="campo"><span>Precio de contado</span>
+        <input type="number" inputmode="decimal" step="any" data-c="contado" value="${esc(calc.contado)}" /></label>
+      <label class="campo"><span>Cuántas cuotas</span>
+        <input type="number" inputmode="numeric" step="1" min="1" data-c="n" value="${esc(calc.n)}" /></label>
+      <label class="campo"><span>Cuánto cada cuota</span>
+        <input type="number" inputmode="decimal" step="any" data-c="cuota" value="${esc(calc.cuota)}" /></label>
+      <label class="campo"><span>Primera cuota</span>
+        <select data-c="offset">
+          <option value="1" ${calc.offset==1?"selected":""}>mes que viene</option>
+          <option value="0" ${calc.offset==0?"selected":""}>este mes</option>
+        </select></label>
+      <label class="campo"><span>Inflación mensual esperada (%)</span>
+        <input type="number" inputmode="decimal" step="any" data-c="infl" value="${esc(calc.infl)}" /></label>
+      <label class="campo"><span>Cuánto rinde tu plata al mes (%)</span>
+        <input type="number" inputmode="decimal" step="any" data-c="rend" value="${esc(calc.rend)}" />
+        <span class="ayuda">plazo fijo, fondo, lo que uses</span></label>
+    </div>
+    <div id="resultado-compra">${resultadoCompra(a, r)}</div>
+  </section>`;
+}
+
+function resultadoCompra(a, r){
+  if(!(a.contado > 0) || !(a.cuota > 0)){
+    return `<div class="vacio">Cargá el precio de contado y el valor de la cuota para ver el veredicto.</div>`;
+  }
+  const holgura = r.disponible + r.random;   // lo libre más el colchón de lo random
+  const entra = a.cuota <= holgura;
+  const ahoga = a.cuota > holgura && a.cuota <= holgura + r.ahorro;
+  const compromiso = r.cuotas + a.cuota;
+  const pesoCuotas = r.entra ? compromiso / r.entra : 0;
+
+  const clase = !entra && !ahoga ? "no" : (a.convieneCuotas ? (entra ? "si" : "ojo") : "ojo");
+  const titulo = !entra && !ahoga
+      ? "Esta cuota no entra en tu mes"
+      : a.convieneCuotas
+        ? `Conviene en ${a.n} cuotas`
+        : "Conviene de contado";
+
+  return `
+    <div class="veredicto ${clase}">
+      <div class="t">${titulo}</div>
+      <p>${a.convieneCuotas
+        ? `Pagando en cuotas entregás <b>${pesos(a.total)}</b> en total, pero eso vale hoy
+           <b>${pesos(a.vp)}</b>: <b>${pesos(Math.abs(a.diferencia))}</b> menos que los
+           ${pesos(a.contado)} del contado.`
+        : `Las cuotas suman <b>${pesos(a.total)}</b>, que en plata de hoy son <b>${pesos(a.vp)}</b>:
+           <b>${pesos(Math.abs(a.diferencia))}</b> más caro que pagarlo de una.`}</p>
+      <ul>
+        <li>Recargo sobre el contado: <b>${a.recargo>0?nf2.format(a.recargo*100)+" %":"ninguno"}</b>
+          ${a.total>a.contado?`(${pesos(a.total-a.contado)} más)`:""}</li>
+        <li>Interés que te cobran: <b>${a.tasa===null?"—":a.tasa===0?"cero, es sin interés":nf2.format(a.tasa*100)+" % por mes"}</b>
+          ${a.tasa?`· TNA ${nf2.format(a.tna*100)} % · efectiva anual ${nf2.format(a.tea*100)} %`:""}</li>
+        <li>Tasa con la que comparás: <b>${nf2.format(a.d*100)} % por mes</b>
+          (${a.rend >= a.infl ? "lo que rinde tu plata" : "la inflación"})</li>
+        <li>${a.tasa !== null && a.tasa < a.d
+          ? "Te financian más barato de lo que pierde tu plata quieta: por eso las cuotas ganan."
+          : "El interés le gana a lo que rinde tu plata: financiarte te cuesta de verdad."}</li>
+      </ul>
+    </div>
+    <div class="cifras" style="margin-top:12px">
+      <div class="cifra ${entra ? "ok" : ahoga ? "aviso" : "mal"}">
+        <span class="k">La cuota en tu mes</span><span class="v num">${pesos(a.cuota)}</span>
+        <span class="d">${entra ? `entra en los ${pesos(holgura)} que tenés libres`
+          : ahoga ? `te comés parte del ahorro: sobran ${pesos(holgura)}`
+          : `te faltan ${pesos(a.cuota - holgura)} por mes`}</span></div>
+      <div class="cifra ${pesoCuotas>0.3?"mal":pesoCuotas>0.2?"aviso":""}">
+        <span class="k">Cuotas totales</span><span class="v num">${nf0.format(Math.round(pesoCuotas*100))} %</span>
+        <span class="d">${pesos(compromiso)} por mes, contando esta</span></div>
+      <div class="cifra"><span class="k">Queda atado hasta</span>
+        <span class="v num">${mesCorto(mesSumar(mesActivo, Math.max(0,a.n-1+Number(a.offset))))}</span>
+        <span class="d">${a.n} ${a.n===1?"mes":"meses"} de compromiso</span></div>
+      <div class="cifra"><span class="k">Ahorrando en vez</span>
+        <span class="v num">${mesesParaJuntar(a.contado, r.ahorro, a.d)}</span>
+        <span class="d">meses hasta juntarlo con tu ahorro</span></div>
+    </div>
+    ${!entra ? `<div class="aviso-linea malo">Aunque el número dé a favor de las cuotas, con lo que
+      hoy te queda libre no llegás. Que una compra “convenga” no significa que entre.</div>` : ""}
+    ${pesoCuotas > 0.3 ? `<div class="aviso-linea malo">Con esta compra las cuotas se llevarían el
+      ${nf0.format(Math.round(pesoCuotas*100))} % de lo que entra. Arriba de 30 % cualquier mes
+      flojo te deja sin aire.</div>` : ""}
+    <div class="acciones" style="margin-top:12px">
+      <button class="btn" id="sumar-cuota">Sumarla a mis cuotas</button>
+      <span class="ayuda">la agrega desde ${mesCorto(mesSumar(mesActivo, Number(calc.offset)))}
+        y pasa a contar en el resumen de cada mes</span>
+    </div>`;
+}
+
+/* ============================================================
+   EVENTOS
+   Todo por delegación: la vista se vuelve a dibujar entera y no
+   quedan escuchas colgando de nodos que ya no existen.
+   ============================================================ */
+document.addEventListener("click", ev => {
+  const t = ev.target.closest("button");
+  if(!t) return;
+
+  if(t.dataset.tab){
+    seccion = t.dataset.tab; editando = null; pintar();
+    window.scrollTo({top:0, behavior:"instant"});
+    return;
+  }
+  if(t.id === "mes-ant"){ mesActivo = mesSumar(mesActivo, -1); pintar(); return; }
+  if(t.id === "mes-sig"){ mesActivo = mesSumar(mesActivo, 1); pintar(); return; }
+  if(t.dataset.pago){ marcarPago(mesActivo, t.dataset.pago); pintar(); return; }
+
+  if(t.dataset.agregar){
+    const lista = t.dataset.agregar;
+    const cont = t.closest(".adentro");
+    const o = leerCampos(cont, lista);
+    if(!String(o.nombre||"").trim()) { alert("Ponele un nombre para reconocerla después."); return; }
+    o.id = nuevoId();
+    if(lista === "extras") o.mes = mesActivo;
+    if(lista === "ingresos" && o.frecuencia === "unico") o.mes = mesActivo;
+    if(lista === "cuotas" && !o.desde) o.desde = mesActivo;
+    D[lista].push(o); guardar(); editando = null; pintar(); return;
+  }
+  if(t.dataset.guardar){
+    const lista = t.dataset.guardar, id = t.dataset.id;
+    const o = leerCampos(t.closest("[data-editar-fila]"), lista);
+    const i = D[lista].findIndex(x => x.id === id);
+    if(i >= 0) D[lista][i] = Object.assign({}, D[lista][i], o);
+    guardar(); editando = null; pintar(); return;
+  }
+  if(t.dataset.editar){ editando = t.dataset.editar; pintar(); return; }
+  if(t.dataset.cancelar){ editando = null; pintar(); return; }
+  if(t.dataset.borrar){
+    const lista = t.dataset.borrar, id = t.dataset.id;
+    const o = D[lista].find(x=>x.id===id);
+    if(!confirm(`¿Borrar “${o ? o.nombre : "esto"}”?`)) return;
+    D[lista] = D[lista].filter(x => x.id !== id);
+    guardar(); editando = null; pintar(); return;
+  }
+
+  if(t.id === "traer-dolar"){ traerDolar(); return; }
+  if(t.id === "sumar-cuota"){
+    const a = analizarCompra(calc);
+    if(!(a.cuota > 0)) return;
+    D.cuotas.push({
+      id: nuevoId(), nombre: calc.nombre || "Compra en cuotas",
+      montoCuota: a.cuota, moneda: "ARS", cotiza: "tarjeta",
+      cantidad: a.n, desde: mesSumar(mesActivo, Number(calc.offset)), dia: 10,
+    });
+    guardar(); seccion = "cuotas"; pintar(); return;
+  }
+
+  if(t.id === "exportar"){ exportar(); return; }
+  if(t.id === "importar"){ $("#archivo").click(); return; }
+  if(t.id === "ejemplo"){
+    if(D.ingresos.length || D.cuentas.length || D.subs.length){
+      if(!confirm("Esto reemplaza lo que tenés cargado por datos de ejemplo. ¿Seguimos?")) return;
+    }
+    D = ejemplo(); calc = Object.assign({}, CALC_VACIA); guardar(); seccion = "resumen"; pintar(); return;
+  }
+  if(t.id === "borrar"){
+    if(!confirm("Se borra todo lo cargado en este navegador y no hay vuelta atrás. ¿Seguro?")) return;
+    D = VACIO(); calc = Object.assign({}, CALC_VACIA); guardar(); seccion = "resumen"; pintar(); return;
+  }
+});
+
+/* Cambios que no necesitan redibujar toda la pantalla mientras se
+   escribe: el dólar y las metas guardan al vuelo. */
+document.addEventListener("input", ev => {
+  const el = ev.target;
+  if(el.dataset.dolar){
+    D.dolar[el.dataset.dolar] = el.value;
+    D.dolar.fuente = "manual"; D.dolar.actualizado = null;
+    guardar(); pintarPronto(); return;
+  }
+  if(el.dataset.meta){ D.metas[el.dataset.meta] = el.value; guardar(); pintarPronto(); return; }
+  if(el.dataset.c){
+    calc[el.dataset.c] = el.value;
+    D.calc = calc; guardar();
+    const caja = $("#resultado-compra");
+    if(caja) caja.innerHTML = resultadoCompra(analizarCompra(calc), resumen(mesActivo));
+    return;
+  }
+});
+document.addEventListener("change", ev => {
+  const el = ev.target;
+  const esSelect = el.tagName === "SELECT";
+  // Ojo: solo los desplegables redibujan acá. Si un campo de texto
+  // rehiciera la pantalla al perder el foco, el botón que estás
+  // tocando desaparecería entre el toque y el click, y el click se
+  // perdería. Los campos de texto ya se ocupan en el evento "input".
+  if(esSelect && (el.dataset.meta || el.dataset.dolar)){
+    if(el.dataset.meta) D.metas[el.dataset.meta] = el.value;
+    if(el.dataset.dolar) D.dolar[el.dataset.dolar] = el.value;
+    guardar(); pintar(); return;
+  }
+  if(esSelect && el.dataset.c){
+    calc[el.dataset.c] = el.value;
+    D.calc = calc; guardar();
+    const caja = $("#resultado-compra");
+    if(caja) caja.innerHTML = resultadoCompra(analizarCompra(calc), resumen(mesActivo));
+    return;
+  }
+  // moneda / ciclo dentro de un formulario: muestra u oculta los
+  // campos que solo tienen sentido en dólares o en las anuales.
+  if(el.dataset.k === "moneda" || el.dataset.k === "ciclo"){ ajustarCampos(el.closest(".campos")); }
+});
+
+function ajustarCampos(cont){
+  if(!cont) return;
+  const moneda = cont.querySelector('[data-k="moneda"]');
+  const ciclo = cont.querySelector('[data-k="ciclo"]');
+  cont.querySelectorAll('[data-solo-usd="true"]').forEach(l =>
+    l.style.display = (moneda && moneda.value === "USD") ? "" : "none");
+  cont.querySelectorAll('[data-solo-anual="true"]').forEach(l =>
+    l.style.display = (ciclo && ciclo.value === "anual") ? "" : "none");
+}
+
+/* ---------- cotizaciones ---------- */
+async function traerDolar(){
+  trayendo = true; pintar();
+  const estado = $("#estado-dolar");
+  try{
+    const res = await fetch("https://dolarapi.com/v1/dolares", {cache:"no-store"});
+    if(!res.ok) throw new Error("respuesta " + res.status);
+    const datos = await res.json();
+    const oficial = datos.find(x => x.casa === "oficial");
+    const blue = datos.find(x => x.casa === "blue");
+    const tarjeta = datos.find(x => x.casa === "tarjeta");
+    if(oficial) D.dolar.oficial = oficial.venta;
+    if(blue) D.dolar.blue = blue.venta;
+    if(tarjeta && oficial && oficial.venta > 0){
+      D.dolar.recargoTarjeta = Math.round((tarjeta.venta/oficial.venta - 1) * 1000) / 10;
+    }
+    D.dolar.fuente = "dolarapi.com";
+    D.dolar.actualizado = new Date().toLocaleString("es-AR", {dateStyle:"short", timeStyle:"short"});
+    guardar();
+    trayendo = false; pintar();
+    $("#estado-dolar").textContent = "Listo: cotizaciones de dolarapi.com al " + D.dolar.actualizado + ".";
+  }catch(e){
+    trayendo = false; pintar();
+    const est = $("#estado-dolar");
+    if(est) est.textContent = "No se pudieron traer (" + e.message + "). Cargalas a mano acá arriba: la app anda igual.";
+  }
+}
+
+/* ---------- exportar e importar ---------- */
+function exportar(){
+  const blob = new Blob([JSON.stringify(D, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `plata-${mesHoy}.json`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+$("#archivo").addEventListener("change", ev => {
+  const f = ev.target.files[0];
+  if(!f) return;
+  const lector = new FileReader();
+  lector.onload = () => {
+    try{
+      const datos = JSON.parse(lector.result);
+      if(typeof datos !== "object" || !datos) throw new Error("archivo raro");
+      D = Object.assign(VACIO(), datos);
+      calc = Object.assign({}, CALC_VACIA, D.calc || {});
+      guardar(); pintar();
+    }catch(e){ alert("Ese archivo no es una copia de Plata."); }
+    ev.target.value = "";
+  };
+  lector.readAsText(f);
+});
+
+/* ---------- datos de ejemplo ---------- */
+function ejemplo(){
+  const d = VACIO();
+  d.dolar = { oficial: 1450, blue: 1520, recargoTarjeta: 30, actualizado: null, fuente: "ejemplo" };
+  d.ingresos = [
+    {id:nuevoId(), nombre:"Sueldo", monto:1250000, moneda:"ARS", cotiza:"oficial", frecuencia:"mensual"},
+    {id:nuevoId(), nombre:"Freelance", monto:200, moneda:"USD", cotiza:"blue", frecuencia:"mensual"},
+  ];
+  d.cuentas = [
+    {id:nuevoId(), nombre:"Alquiler", monto:420000, moneda:"ARS", dia:5, categoria:"casa"},
+    {id:nuevoId(), nombre:"Expensas", monto:95000, moneda:"ARS", dia:10, categoria:"casa"},
+    {id:nuevoId(), nombre:"Luz y gas", monto:68000, moneda:"ARS", dia:18, categoria:"servicios"},
+    {id:nuevoId(), nombre:"Internet", monto:42000, moneda:"ARS", dia:12, categoria:"servicios"},
+    {id:nuevoId(), nombre:"Celular", monto:25000, moneda:"ARS", dia:12, categoria:"servicios"},
+    {id:nuevoId(), nombre:"Prepaga", monto:130000, moneda:"ARS", dia:3, categoria:"salud"},
+  ];
+  d.subs = [
+    {id:nuevoId(), nombre:"Spotify", monto:4.99, moneda:"USD", cotiza:"tarjeta", ciclo:"mensual", dia:7},
+    {id:nuevoId(), nombre:"Netflix", monto:11.99, moneda:"USD", cotiza:"tarjeta", ciclo:"mensual", dia:15},
+    {id:nuevoId(), nombre:"iCloud 200 GB", monto:2.99, moneda:"USD", cotiza:"tarjeta", ciclo:"mensual", dia:1},
+    {id:nuevoId(), nombre:"Gimnasio", monto:38000, moneda:"ARS", ciclo:"mensual", dia:5},
+    {id:nuevoId(), nombre:"Dominio y hosting", monto:96, moneda:"USD", cotiza:"tarjeta", ciclo:"anual",
+     mesCobro:String(((hoy.getMonth()+2-1)%12)+1), dia:20},
+  ];
+  d.cuotas = [
+    {id:nuevoId(), nombre:"Celular", montoCuota:62000, moneda:"ARS", cotiza:"tarjeta",
+     cantidad:12, desde:mesSumar(mesHoy,-4), dia:10},
+  ];
+  d.metas = { ahorroModo:"porcentaje", ahorroValor:15, randomModo:"porcentaje", randomValor:10 };
+  return d;
+}
+
+/* ---------- arranque ---------- */
+pintar();
+document.addEventListener("toggle", ev => {
+  if(ev.target.matches("details.forma")) ajustarCampos(ev.target.querySelector(".campos"));
+}, true);
+</script>
+</body>
+</html>
