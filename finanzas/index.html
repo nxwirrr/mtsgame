@@ -154,7 +154,8 @@ nav.tabs button[aria-current="page"]{
   padding:10px 12px;
 }
 .item .cuerpo{flex:1;min-width:0}
-.item .nom{font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .nom{font-weight:700;font-size:15px;overflow-wrap:anywhere;
+            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .item .meta{font-size:12.5px;color:var(--muted)}
 .item .plata{font-weight:800;text-align:right;white-space:nowrap}
 .item .plata small{display:block;font-weight:600;color:var(--muted);font-size:11.5px}
@@ -549,8 +550,12 @@ function pintarPronto(){
 }
 
 /* ---------- avisos comunes ---------- */
+function hayAlgoEnDolares(){
+  return ["ingresos","cuentas","subs","extras"].some(l => D[l].some(x => x.moneda === "USD"))
+      || D.cuotas.some(c => c.moneda === "USD");
+}
 function avisoDolar(){
-  if(hayDolar()) return "";
+  if(hayDolar() || !hayAlgoEnDolares()) return "";
   return `<div class="aviso-linea">Todavía no cargaste la cotización del dólar, así que lo que está
     en dólares se cuenta como cero. Andá a <b>Dólar</b> y ponela.</div>`;
 }
