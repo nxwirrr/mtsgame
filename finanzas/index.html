@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#f5f2ea" />
 <title>Plata · finanzas del mes</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icono-192.png" />
+<link rel="apple-touch-icon" href="icono-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Plata" />
+<meta name="description" content="Cuánta plata entra, cuánta está comprometida, cuánto se puede ahorrar y si conviene comprar en cuotas." />
 <style>
 /* ============================================================
    DISEÑO — tokens
@@ -1336,6 +1342,19 @@ function ejemplo(){
   ];
   d.metas = { ahorroModo:"porcentaje", ahorroValor:15, randomModo:"porcentaje", randomValor:10 };
   return d;
+}
+
+/* ---------- para que abra sin internet ----------
+   Publicada en una dirección web, la aplicación se guarda en el
+   teléfono y abre aunque no haya señal. Abierta como archivo suelto
+   (file://) el navegador no lo permite, y no hace falta: el archivo
+   ya está en el aparato. */
+const seguro = location.protocol === "https:" ||
+    ["localhost","127.0.0.1"].includes(location.hostname);
+if("serviceWorker" in navigator && seguro){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(()=>{ /* sin copia offline, anda igual */ });
+  });
 }
 
 /* ---------- arranque ---------- */

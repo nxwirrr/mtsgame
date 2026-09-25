@@ -97,15 +97,16 @@ Para desarrollo, `?emulador=1` conecta contra un Firestore local
 | `index.html` | La aplicación |
 | `firestore.rules` | Reglas de seguridad, para pegar en la consola de Firebase |
 | `prototipo-v1.html` | Prototipo anterior (sincronizaba celular a celular con PeerJS). Se conserva como referencia; no se usa. |
-| `finanzas.html` | Plata: finanzas personales del mes. Aplicación aparte, sin relación con el juego. |
+| `finanzas/` | Plata: finanzas personales del mes. Aplicación aparte, sin relación con el juego. |
 
 ---
 
 # Plata · finanzas del mes
 
-`finanzas.html` es otra aplicación entera en un archivo. Se abre en cualquier
-navegador y no necesita instalar nada, ni cuenta, ni internet: todo lo que se
-carga queda en el `localStorage` de ese navegador y no sale del dispositivo.
+`finanzas/index.html` es otra aplicación entera en un archivo. Se abre en
+cualquier navegador y no necesita instalar nada, ni cuenta, ni internet: todo
+lo que se carga queda en el `localStorage` de ese navegador y no sale del
+dispositivo.
 
 Contesta cuatro preguntas:
 
@@ -139,6 +140,31 @@ Contesta cuatro preguntas:
 - La compra que convenga se suma a las cuotas con un botón
 - Exportar e importar los datos en un archivo, y datos de ejemplo para
   mirarla funcionando antes de cargar los propios
+
+### Tenerla a mano en cualquier lado
+
+La carpeta `finanzas/` se publica sola con GitHub Pages y queda en una
+dirección fija que abre en cualquier teléfono o computadora:
+
+1. en GitHub, **Settings → Pages**;
+2. en *Source*, elegir **Deploy from a branch**, rama `main`, carpeta `/ (root)`;
+3. esperar un minuto: la aplicación queda en
+   `https://<usuaria>.github.io/<repositorio>/finanzas/`.
+
+Con esa dirección abierta en el celular, *Agregar a la pantalla de inicio*
+(iPhone: compartir → Agregar a inicio; Android: menú → Instalar aplicación) la
+deja como un ícono más, a pantalla completa. El `sw.js` guarda la aplicación en
+el aparato, así que después abre aunque no haya señal.
+
+El repositorio es público: lo que se publica es la aplicación, nunca los datos.
+Los números viven en el navegador de cada dispositivo y no viajan a ningún
+servidor. Eso tiene una consecuencia que conviene saber: **lo cargado en el
+celular no aparece solo en la computadora**. Para pasarlos, *Exportar datos* en
+uno e *Importar* en el otro.
+
+Al tocar el archivo hay que subirle el número a `VERSION` dentro de `sw.js`;
+si no, los navegadores que ya la tengan guardada siguen mostrando la versión
+vieja.
 
 ### Lo que la aplicación no hace
 
